@@ -1,0 +1,776 @@
+/* Basic Setup */
+
+.video-preview-container {
+    position: relative;
+    width: 100%;
+    background-color: #000;
+    /* Maintain a 16:9 aspect ratio for the container */
+    aspect-ratio: 16 / 9;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.video-preview-container video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* This ensures the video fits without being cropped or stretched */
+}
+
+#node-video-buttons-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10; /* Ensure overlay is on top */
+    pointer-events: none; /* Allow clicks to pass through to the video below */
+}
+
+.video-overlay-button {
+    pointer-events: auto; /* Make the buttons clickable */
+    cursor: grab;
+}
+:root {
+    --background-light: #f4f4f9;
+    --text-light: #333;
+    --primary-light: #6200ee;
+    --primary-variant-light: #3700b3;
+    --secondary-light: #03dac6;
+    --card-bg-light: #fff;
+    --shadow-light: 0 2px 4px rgba(0,0,0,0.1);
+
+    --background-dark: #121212;
+    --text-dark: #e0e0e0;
+    --primary-dark: #bb86fc;
+    --primary-variant-dark: #3700b3;
+    --secondary-dark: #03dac6;
+    --card-bg-dark: #1e1e1e;
+    --shadow-dark: 0 4px 8px rgba(0,0,0,0.25);
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 2rem;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+body.light-mode {
+    background-color: var(--background-light);
+    color: var(--text-light);
+}
+
+body.dark-mode {
+    background-color: var(--background-dark);
+    color: var(--text-dark);
+}
+
+#app {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Header */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+header h1 {
+    font-size: 2rem;
+}
+
+/* Theme Switcher */
+.theme-switcher {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+}
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+}
+input:checked + .slider {
+  background-color: var(--primary-light);
+}
+body.dark-mode input:checked + .slider {
+    background-color: var(--primary-dark);
+}
+input:focus + .slider {
+  box-shadow: 0 0 1px #2196F3;
+}
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+.slider.round {
+  border-radius: 34px;
+}
+.slider.round:before {
+  border-radius: 50%;
+}
+
+/* Dashboard */
+#dashboard h2 {
+    font-size: 1.5rem;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+body.dark-mode #dashboard h2 {
+    border-bottom-color: #444;
+}
+
+.project-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.project-card {
+    padding: 1.5rem;
+    border-radius: 8px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+body.light-mode .project-card {
+    background-color: var(--card-bg-light);
+    box-shadow: var(--shadow-light);
+}
+
+body.dark-mode .project-card {
+    background-color: var(--card-bg-dark);
+    box-shadow: var(--shadow-dark);
+}
+
+.project-card:hover {
+    transform: translateY(-5px);
+}
+
+.project-card h3 {
+    margin-top: 0;
+}
+
+#nodes-container {
+    position: relative; /* Essential for positioning draggable nodes */
+    width: 100%;
+    height: 100%;
+    min-height: 500px; /* Ensure container has a size */
+}
+
+.card-actions {
+    margin-top: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap; /* Ensure buttons wrap on smaller cards */
+}
+
+.project-grid p {
+    opacity: 0.7;
+}
+
+/* Buttons */
+button {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.primary-btn {
+    color: white;
+}
+
+body.light-mode .primary-btn {
+    background-color: var(--primary-light);
+}
+body.dark-mode .primary-btn {
+    background-color: var(--primary-dark);
+    color: #000;
+}
+
+#node-video-preview-container {
+    position: relative; /* This is crucial for the button overlay to be positioned correctly */
+}
+
+#node-video-preview-container {
+    position: relative; /* This is crucial for the button overlay to be positioned correctly */
+}
+
+/* Node Editor Panel */
+#node-editor-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#node-editor-panel.hidden {
+    display: none !important;
+}
+
+.panel-container {
+    width: 90vw;
+    max-width: 1200px;
+    height: 90vh;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.panel-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.panel-content {
+    flex-grow: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 20px;
+}
+
+.node-main-content {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+
+
+.button-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-left: 1px solid var(--border-color);
+    padding-left: 20px;
+}
+
+/* Timeline Scrubber */
+.timeline-container {
+    margin-top: 10px;
+}
+
+#timeline-scrubber {
+    position: relative;
+    width: 100%;
+    height: 20px;
+    cursor: pointer;
+}
+
+body.light-mode #timeline-scrubber {
+    background-color: #e0e0e0;
+}
+
+body.dark-mode #timeline-scrubber {
+    background-color: #333;
+}
+
+#timeline-playhead {
+    position: absolute;
+    top: -5px;
+    left: 0;
+    width: 4px;
+    height: 30px;
+    background-color: #e53935;
+    pointer-events: none;
+    z-index: 2;
+}
+
+#timeline-markers {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.timeline-marker {
+    position: absolute;
+    top: 0;
+    width: 6px;
+    height: 20px;
+    transform: translateX(-3px);
+    cursor: pointer;
+}
+
+body.light-mode .timeline-marker {
+    background-color: var(--primary-light);
+}
+
+body.dark-mode .timeline-marker {
+    background-color: var(--primary-dark);
+}
+
+#add-button-btn {
+    width: 100%;
+    margin-top: 1rem;
+    padding: 0.75rem;
+}
+
+/* Button Editor List */
+#buttons-list {
+    margin-top: 10px;
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 5px;
+}
+
+.button-item {
+    padding: 8px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border: 1px solid transparent;
+}
+
+.button-item:hover {
+    background-color: var(--bg-color-hover);
+}
+
+.button-item.selected {
+    background-color: var(--primary-color-light);
+    border-color: var(--primary-color);
+    color: var(--primary-color-contrast);
+}
+
+body.dark-mode .button-item.selected {
+    background-color: var(--primary-dark);
+    border-color: var(--primary-dark);
+}
+
+/* Preview Overlay */
+#preview-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#preview-overlay.hidden {
+    display: none !important;
+}
+
+#preview-video {
+    max-width: 90%;
+    max-height: 90%;
+    width: auto;
+    height: auto;
+}
+
+#preview-buttons-container {
+    position: absolute;
+    bottom: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 1rem;
+    z-index: 1001;
+}
+
+.preview-button {
+    padding: 0.75rem 1.5rem;
+    font-size: 1.2rem;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 2px solid var(--primary-dark);
+    background-color: rgba(0, 0, 0, 0.5);
+    color: var(--primary-dark);
+    transition: all 0.2s ease;
+}
+
+.preview-button:hover {
+    background-color: var(--primary-dark);
+    color: #000;
+}
+
+#close-preview-btn {
+    position: absolute;
+    top: 2rem;
+    right: 2rem;
+    font-size: 3rem;
+    color: #fff;
+    background: none;
+    border: none;
+    cursor: pointer;
+    z-index: 1001;
+    line-height: 1;
+}
+
+/* Editor View */
+.editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+#visual-flow-editor {
+    position: relative;
+    width: 100%;
+    height: 70vh;
+    border-radius: 8px;
+    overflow: hidden; /* Changed from auto to hidden to contain absolute nodes */
+    border: 1px solid #ddd;
+}
+
+body.light-mode #visual-flow-editor {
+    background-color: var(--background-light);
+}
+
+body.dark-mode #visual-flow-editor {
+    background-color: #000;
+    border-color: #333;
+}
+
+#nodes-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.video-node {
+    position: absolute;
+    border-radius: 8px;
+    padding: 1rem;
+    width: 220px;
+    cursor: move;
+    user-select: none;
+    transition: box-shadow 0.2s;
+}
+
+body.light-mode .video-node {
+    background-color: var(--card-bg-light);
+    border: 1px solid #ccc;
+    box-shadow: var(--shadow-light);
+}
+
+body.dark-mode .video-node {
+    background-color: var(--card-bg-dark);
+    border: 1px solid #444;
+    box-shadow: var(--shadow-dark);
+}
+
+.video-node:hover {
+    box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+}
+
+body.dark-mode .video-node:hover {
+    box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+}
+
+.video-node.selected {
+    border-width: 3px;
+}
+
+body.light-mode .video-node.selected {
+    border-color: var(--primary-light);
+}
+
+body.dark-mode .video-node.selected {
+    border-color: var(--primary-dark);
+}
+
+.video-node h4,
+.node-thumbnail-placeholder {
+    pointer-events: none; /* Prevent h4 from interfering with drag */
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.node-thumbnail-placeholder {
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+body.light-mode .node-thumbnail-placeholder {
+    background-color: #e0e0e0;
+    color: #666;
+}
+
+body.dark-mode .node-thumbnail-placeholder {
+    background-color: #333;
+    color: #999;
+}
+
+#connections-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none; /* Allows clicks to pass through to nodes */
+}
+
+#connections-svg path {
+    stroke-width: 3px;
+    fill: none;
+    transition: stroke 0.2s;
+}
+
+/* Preview Overlay */
+#preview-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#preview-overlay.hidden {
+    display: none !important;
+}
+
+#preview-video {
+    max-width: 90%;
+    max-height: 90%;
+    width: auto;
+    height: auto;
+}
+
+#preview-buttons-container {
+    position: absolute;
+    bottom: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 1rem;
+    z-index: 1001;
+}
+
+.preview-button {
+    padding: 0.75rem 1.5rem;
+    font-size: 1.2rem;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 2px solid var(--primary-dark);
+    background-color: rgba(0, 0, 0, 0.5);
+    color: var(--primary-dark);
+    transition: all 0.2s ease;
+}
+
+.preview-button:hover {
+    background-color: var(--primary-dark);
+    color: #000;
+}
+
+#close-preview-btn {
+    position: absolute;
+    top: 2rem;
+    right: 2rem;
+    font-size: 3rem;
+    color: #fff;
+    background: none;
+    border: none;
+    cursor: pointer;
+    z-index: 1001;
+    line-height: 1;
+}
+
+body.light-mode #connections-svg path {
+    stroke: #a0a0a0;
+}
+
+body.dark-mode #connections-svg path {
+    stroke: #555;
+}
+
+#connections-svg path:hover {
+    stroke: #e53935;
+}
+
+/* Exported Player Styles */
+.player-container {
+    position: relative;
+    width: 100%;
+    max-width: 1280px; /* Or any desired max-width */
+    margin: auto;
+    aspect-ratio: 16 / 9;
+    background-color: #000;
+}
+
+#player-video {
+    width: 100%;
+    height: 100%;
+}
+
+#player-buttons-container {
+    position: absolute;
+    bottom: 15%; /* Position higher to avoid controls */
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 1rem;
+    z-index: 2147483647; /* Max z-index */
+}
+
+.player-button {
+    padding: 0.75rem 1.5rem;
+    font-size: 1.2rem;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 2px solid #FFFFFF;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: #FFFFFF;
+    transition: all 0.2s ease;
+}
+
+.player-button:hover {
+    background-color: #FFFFFF;
+    color: #000000;
+}
+
+.node-output {
+    position: absolute;
+    right: -7px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    background-color: #03a9f4;
+    border-radius: 50%;
+    cursor: crosshair;
+    border: 3px solid var(--background-light);
+    transition: transform 0.2s;
+}
+
+body.dark-mode .node-output {
+    border-color: var(--card-bg-dark);
+}
+
+.node-output:hover {
+    transform: translateY(-50%) scale(1.2);
+}
+
+.danger {
+    background-color: #e53935;
+    color: white;
+}
+
+/* --- Visual Button Editor Styles --- */
+.video-preview-container {
+    position: relative; /* This is crucial for the overlay */
+}
+
+.video-buttons-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Allows clicks to go through to the video */
+}
+
+.interactive-button-preview {
+    position: absolute;
+    cursor: move;
+    pointer-events: all; /* Make the buttons themselves clickable */
+    transform: translate(-50%, -50%);
+    border: 2px dashed var(--primary-color);
+    padding: 10px 20px;
+    background-color: rgba(0, 123, 255, 0.5);
+    color: white;
+    border-radius: 5px;
+    font-size: 16px;
+    white-space: nowrap;
+}
+
+.interactive-button-preview.dragging {
+    opacity: 0.7;
+    border-style: solid;
+    z-index: 1000; /* Ensure dragging button is on top */
+}
+
+.button-item .style-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color);
+}
+
+.button-item .style-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.button-item .style-group label {
+    font-size: 0.8em;
+    margin-bottom: 4px;
+    color: var(--text-secondary);
+}
+
+.button-item .style-group input[type="color"] {
+    width: 40px;
+    height: 25px;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.button-item .style-group input {
+    max-width: 80px;
+}

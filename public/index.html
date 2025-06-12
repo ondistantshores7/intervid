@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Video Editor</title>
+        <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Override for preview controls */
+        #preview-buttons-container {
+            pointer-events: none;
+        }
+        #preview-buttons-container .player-button, #preview-buttons-container button {
+            pointer-events: auto;
+        }
+    </style>
+</head>
+<body>
+    <main id="dashboard">
+        <header>
+            <h1>Interactive Video Editor</h1>
+            <div class="theme-switcher">
+                <label class="switch">
+                    <input type="checkbox" id="theme-toggle">
+                    <span class="slider round"></span>
+                </label>
+                <label for="theme-toggle">Dark Mode</label>
+            </div>
+        </header>
+        <h2>My Projects</h2>
+        <div class="project-grid" id="project-grid"></div>
+        <button id="new-project-btn" class="primary-btn">+ New Project</button>
+    </main>
+
+    <main id="editor" class="hidden">
+        <header class="editor-header">
+            <button id="back-to-dashboard-btn">&larr; Back to Projects</button>
+            <h2 id="project-title-editor"></h2>
+            <div class="editor-actions">
+                <button id="add-video-btn" class="secondary-btn">+ Add Video</button>
+                <button id="preview-project-btn" class="secondary-btn">Preview Project</button>
+                <button id="export-project-btn">Export Project</button>
+            </div>
+        </header>
+        <div id="visual-flow-editor">
+            <svg id="connections-svg" width="100%" height="100%"></svg>
+            <div id="nodes-container">
+                <!-- Video nodes will be dynamically added here -->
+            </div>
+        </div>
+        <div id="node-editor-panel" class="hidden">
+            <div class="panel-container">
+                <div class="panel-header">
+                    <h3>Edit Node</h3>
+                    <button id="close-panel-btn">&times;</button>
+                </div>
+                <div class="panel-content">
+                    <div class="node-main-content">
+                        <div class="form-group">
+                            <label for="node-name-input">Node Name</label>
+                            <input type="text" id="node-name-input" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="node-url-input">Cloudflare Video URL</label>
+                            <input type="text" id="node-url-input" class="form-control">
+                        </div>
+                        <div id="node-video-preview-container" class="video-preview-container">
+                            <video id="node-video-preview" controls></video>
+                            <div id="node-video-buttons-overlay" class="video-buttons-overlay"></div>
+                        </div>
+                        <div class="timeline-container">
+                            <div id="timeline-scrubber">
+                                <div id="timeline-playhead"></div>
+                                <div id="timeline-markers"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="button-sidebar">
+                        <h4>Buttons</h4>
+                        <button id="add-button-btn">+ Add Button at Playhead</button>
+                        <div id="buttons-list"></div>
+                        <div id="button-editor-panel" class="hidden">
+                            <h5>Edit Button</h5>
+                            <div class="form-group">
+                                <label for="button-text-input">Text</label>
+                                <input type="text" id="button-text-input" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="button-time-input">Time (s)</label>
+                                <input type="number" id="button-time-input" class="form-control" step="0.1" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="button-link-type">Link Type</label>
+                                <select id="button-link-type">
+                                    <option value="node">Node</option>
+                                    <option value="url">External URL</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="node-link-container">
+                                <label for="button-target-node">Target Node</label>
+                                <select id="button-target-node"></select>
+                            </div>
+                            <div class="form-group" id="url-link-container" style="display: none;">
+                                <label for="button-target-url">Target URL</label>
+                                <input type="url" id="button-target-url" placeholder="https://example.com">
+                            </div>
+                            <div class="style-grid">
+                                <div class="form-group">
+                                    <label for="button-pos-x-input">Position X (%)</label>
+                                    <input type="number" id="button-pos-x-input" class="form-control" step="0.1">
+                                </div>
+                                <div class="form-group">
+                                    <label for="button-pos-y-input">Position Y (%)</label>
+                                    <input type="number" id="button-pos-y-input" class="form-control" step="0.1">
+                                </div>
+                                <div class="form-group">
+                                    <label for="button-width-input">Width (px)</label>
+                                    <input type="number" id="button-width-input" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label for="button-height-input">Height (px)</label>
+                                    <input type="number" id="button-height-input" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label for="button-color-input">Color</label>
+                                    <input type="color" id="button-color-input" class="form-control" value="#ffffff">
+                                </div>
+                                <div class="form-group">
+                                    <label for="button-bgcolor-input">Background</label>
+                                    <input type="color" id="button-bgcolor-input" class="form-control" value="#007bff">
+                                </div>
+                                <div class="form-group">
+                                    <label for="button-font-family-input">Font Family</label>
+                                    <input type="text" id="button-font-family-input" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label for="button-font-size-input">Font Size (px)</label>
+                                    <input type="number" id="button-font-size-input" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label for="button-padding-input">Padding (px)</label>
+                                    <input type="number" id="button-padding-input" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label for="button-border-radius-input">Border Radius (%)</label>
+                                    <input type="number" id="button-border-radius-input" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label for="button-border-input">Border</label>
+                                    <input type="text" id="button-border-input" class="form-control" placeholder="e.g., 1px solid #000">
+                                </div>
+                            </div>
+                            <button id="duplicate-button-btn">Duplicate Button</button>
+                            <button id="delete-button-btn" class="danger">Delete Button</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="preview-overlay" class="hidden">
+        <video id="preview-video" controls playsinline></video>
+        <div id="preview-buttons-container"></div>
+        <button id="close-preview-btn">&times;</button>
+    </div>
+
+    <!-- Template for exported player -->
+    <div id="player-template" style="display: none;">
+        <video id="player-video" playsinline controls></video>
+        <div id="player-buttons-container"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="js/player.js" defer></script>
+    <script src="js/main_v2.js" defer></script>
+</body>
+</html>
