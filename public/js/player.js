@@ -2,7 +2,7 @@ class IVSPlayer {
     constructor(overlayElement, projectData, startNodeId) {
         this.overlay = overlayElement;
         this.project = projectData;
-        this.videoEl = this.overlay.querySelector('video');
+        this.videoEl = this.overlay.querySelector('#preview-video');
         this.buttonsContainer = this.overlay.querySelector('.preview-buttons-overlay');
         this.hls = null;
         this.timeUpdateHandler = null;
@@ -77,6 +77,11 @@ class IVSPlayer {
             left: buttonData.position.x,
             top: buttonData.position.y
         });
+        if(buttonData.animation && buttonData.animation.type!=='none'){
+            const animClass = buttonData.animation.type==='slide'?`anim-slide-${buttonData.animation.direction}`:`anim-${buttonData.animation.type}`;
+            buttonEl.classList.add(animClass);
+            buttonEl.style.animationDuration = `${buttonData.animation.duration}s`;
+        }
         this.buttonsContainer.appendChild(buttonEl);
     }
 
@@ -98,13 +103,17 @@ class IVSPlayer {
         if (this.hls) {
             this.hls.destroy();
         }
-        this.videoEl.pause();
-        this.videoEl.src = '';
-        if (this.timeUpdateHandler) {
-            this.videoEl.removeEventListener('timeupdate', this.timeUpdateHandler);
+        if (this.videoEl) {
+            this.videoEl.pause();
+            this.videoEl.src = '';
+            if (this.timeUpdateHandler) {
+                this.videoEl.removeEventListener('timeupdate', this.timeUpdateHandler);
+            }
         }
-        this.buttonsContainer.removeEventListener('click', this.buttonClickHandler);
-        this.buttonsContainer.innerHTML = '';
+        if (this.buttonsContainer) {
+            this.buttonsContainer.removeEventListener('click', this.buttonClickHandler);
+            this.buttonsContainer.innerHTML = '';
+        }
         console.log('Player destroyed.');
     }
 }

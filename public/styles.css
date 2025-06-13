@@ -30,6 +30,22 @@
     pointer-events: auto; /* Make the buttons clickable */
     cursor: grab;
 }
+
+/* Resize Handles */
+.resize-handle {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: #fff;
+    border: 1px solid #000;
+    z-index: 20;
+    pointer-events: auto;
+}
+.resize-handle.tl { top: -4px; left: -4px; cursor: nwse-resize; }
+.resize-handle.tr { top: -4px; right: -4px; cursor: nesw-resize; }
+.resize-handle.bl { bottom: -4px; left: -4px; cursor: nesw-resize; }
+.resize-handle.br { bottom: -4px; right: -4px; cursor: nwse-resize; }
+
 :root {
     --background-light: #f4f4f9;
     --text-light: #333;
@@ -250,13 +266,21 @@ body.dark-mode .primary-btn {
     width: 90vw;
     max-width: 1200px;
     height: 90vh;
-    background-color: var(--bg-color);
-    color: var(--text-color);
     border-radius: 12px;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
     display: flex;
     flex-direction: column;
     overflow: hidden;
+}
+
+body.light-mode .panel-container {
+    background-color: var(--background-light);
+    color: var(--text-light);
+}
+
+body.dark-mode .panel-container {
+    background-color: var(--background-dark);
+    color: var(--text-dark);
 }
 
 .panel-header {
@@ -774,3 +798,34 @@ body.dark-mode .node-output {
 .button-item .style-group input {
     max-width: 80px;
 }
+
+/* Entrance Animations */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.anim-fade { animation: fadeIn 0.5s ease forwards; }
+
+@keyframes slideInLeft {
+    from { transform: translateX(-100%); opacity:0; }
+    to { transform: translateX(0); opacity:1; }
+}
+.anim-slide-left { animation: slideInLeft 0.5s ease forwards; }
+
+@keyframes slideInRight {
+    from { transform: translateX(100%); opacity:0; }
+    to { transform: translateX(0); opacity:1; }
+}
+.anim-slide-right { animation: slideInRight 0.5s ease forwards; }
+
+@keyframes slideInTop {
+    from { transform: translateY(-100%); opacity:0; }
+    to { transform: translateY(0); opacity:1; }
+}
+.anim-slide-top { animation: slideInTop 0.5s ease forwards; }
+
+@keyframes slideInBottom {
+    from { transform: translateY(100%); opacity:0; }
+    to { transform: translateY(0); opacity:1; }
+}
+.anim-slide-bottom { animation: slideInBottom 0.5s ease forwards; }
