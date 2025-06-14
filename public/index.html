@@ -82,6 +82,7 @@
                             <select id="node-end-action">
                                 <option value="none" selected>Do Nothing</option>
                                 <option value="repeat">Repeat Node</option>
+                                <option value="loop">Loop Node (3x)</option>
                                 <option value="next">Play Connected Node</option>
                                 <option value="node">Play Specific Node</option>
                                 <option value="url">Open Specific URL</option>
@@ -217,13 +218,138 @@
                                             <option value="1">1s</option>
                                             <option value="1.5">1.5s</option>
                                             <option value="2">2s</option>
-                                            <option value="2.5">2.5s</option>
+                                            <option value="3">3s</option>
                                         </select>
                                     </div>
-                                </div>
-                                <button id="duplicate-button-btn">Duplicate Button</button>
-                                <button id="delete-button-btn" class="danger">Delete Button</button>
+                                    <div class="form-group">
+                                        <label class="checkbox-container">
+                                            <input type="checkbox" id="animate-out-checkbox">
+                                            <span class="checkmark"></span>
+                                            Animate Out
+                                        </label>
+                                    </div>
+                                    <div class="form-group animate-out-options" style="display: none;">
+                                        <label for="animate-out-delay">After (seconds)</label>
+                                        <input type="number" id="animate-out-delay" class="form-control" min="0" step="0.1" value="5">
+                                    </div>
                             </div>
+                        </div>
+                    </div>
+                    <div class="button-sidebar">
+                        <h4>Buttons</h4>
+                        <button id="add-button-btn">+ Add Button at Playhead</button>
+                        <div id="buttons-list"></div>
+                        <div id="button-editor-panel" class="hidden">
+                            <h5>Edit Button</h5>
+                            <div class="form-group">
+                                <label for="button-text-input">Text</label>
+                                <input type="text" id="button-text-input" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="button-time-input">Time (s)</label>
+                                <input type="number" id="button-time-input" class="form-control" step="0.1" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="button-link-type">Link Type</label>
+                                <select id="button-link-type">
+                                    <option value="node">Node</option>
+                                    <option value="url">External URL</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="node-link-container">
+                                <label for="button-target-node">Target Node</label>
+                                <select id="button-target-node"></select>
+                            </div>
+                            <div class="form-group" id="url-link-container" style="display: none;">
+                                <label for="button-target-url">Target URL</label>
+                                <input type="url" id="button-target-url" placeholder="https://example.com">
+                            </div>
+                            <div class="style-grid">
+                                <div class="form-group">
+                                    <label for="button-pos-x-input">Position X (%)</label>
+                                    <input type="number" id="button-pos-x-input" class="form-control" step="0.1">
+                                </div>
+                                <div class="form-group">
+                                    <label for="button-pos-y-input">Position Y (%)</label>
+                                    <input type="number" id="button-pos-y-input" class="form-control" step="0.1">
+                                </div>
+                                <div class="form-group">
+                                    <label for="button-width-input">Width (px)</label>
+                                    <input type="number" id="button-width-input" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label for="button-height-input">Height (px)</label>
+                                    <input type="number" id="button-height-input" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label for="button-color-input">Color</label>
+                                    <input type="color" id="button-color-input" class="form-control" value="#ffffff">
+                                </div>
+                                <div class="form-group">
+                                    <label for="button-bgcolor-input">Background</label>
+                                    <input type="color" id="button-bgcolor-input" class="form-control" value="#007bff">
+                                </div>
+                                <div class="form-group">
+                                    <label for="button-font-family-input">Font Family</label>
+                                    <input type="text" id="button-font-family-input" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label for="button-font-size-input">Font Size (px)</label>
+                                    <input type="number" id="button-font-size-input" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label for="button-padding-input">Padding (px)</label>
+                                    <input type="number" id="button-padding-input" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label for="button-border-radius-input">Border Radius (%)</label>
+                                    <input type="number" id="button-border-radius-input" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label for="button-border-input">Border</label>
+                                    <input type="text" id="button-border-input" class="form-control" placeholder="e.g., 1px solid #000">
+                                </div>
+                                <div class="form-group">
+                                    <label for="animation-type">Animation Type</label>
+                                    <select id="animation-type">
+                                        <option value="none">None</option>
+                                        <option value="fade">Fade In</option>
+                                        <option value="slide">Slide In</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="anim-direction-group">
+                                    <label for="animation-direction">Slide Direction</label>
+                                    <select id="animation-direction">
+                                        <option value="left">Left</option>
+                                        <option value="right">Right</option>
+                                        <option value="top">Top</option>
+                                        <option value="bottom">Bottom</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="animation-duration">Animation Duration</label>
+                                    <select id="animation-duration">
+                                        <option value="0.5">0.5s</option>
+                                        <option value="1">1s</option>
+                                        <option value="1.5">1.5s</option>
+                                        <option value="2">2s</option>
+                                        <option value="3">3s</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="checkbox-container">
+                                        <input type="checkbox" id="animate-out-checkbox">
+                                        <span class="checkmark"></span>
+                                        Animate Out
+                                    </label>
+                                </div>
+                                <div class="form-group animate-out-options" style="display: none;">
+                                    <label for="animate-out-delay">After (seconds)</label>
+                                    <input type="number" id="animate-out-delay" class="form-control" min="0" step="0.1" value="5">
+                                </div>
+                            </div>
+                            <button id="duplicate-button-btn">Duplicate Button</button>
+                            <button id="delete-button-btn" class="danger">Delete Button</button>
                         </div>
                     </div>
                 </div>

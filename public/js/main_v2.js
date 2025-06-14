@@ -361,35 +361,178 @@ document.addEventListener('DOMContentLoaded', () => {
             const item = e.target.closest('.button-item');
             if (item) selectButton(item.dataset.buttonId);
         });
-        const updateButtonFromEditor = () => {
+        const updateButtonFromEditor = (e) => {
             if (!selectedButtonId) return;
             const node = currentProject.videos.find(v => v.id === selectedNodeId);
             const button = node.buttons.find(b => b.id === selectedButtonId);
             if (!button) return;
 
-            button.text = buttonTextInput.value;
-            button.time = parseFloat(buttonTimeInput.value);
-            button.linkType = buttonLinkType.value;
-            button.target = button.linkType === 'url' ? buttonTargetUrl.value : buttonTargetNode.value;
-            button.animation = { type: animationType.value, direction: animationDirection.value, duration: animationDuration.value };
+            // Initialize objects if they don't exist
+            if (!button.style) button.style = {};
+            if (!button.position) button.position = { x: '40%', y: '80%' };
+            if (!button.animation) button.animation = { type: 'none', direction: 'left', duration: '1' };
+            if (!button.animateOut) button.animateOut = { enabled: false, delay: 5 };
 
-            const containerRect = nodeVideoButtonsOverlay.getBoundingClientRect();
-            if (containerRect.width > 0 && containerRect.height > 0) {
-                const xPercent = (parseFloat(buttonPosXInput.value) / containerRect.width) * 100;
-                const yPercent = (parseFloat(buttonPosYInput.value) / containerRect.height) * 100;
-                const widthPercent = (parseFloat(buttonWidthInput.value) / containerRect.width) * 100;
-                const heightPercent = (parseFloat(buttonHeightInput.value) / containerRect.height) * 100;
+            // Track if we need to update the button's dimensions/position
+            const needsFullRender = e && (
+                e.target === buttonPosXInput ||
+                e.target === buttonPosYInput ||
+                e.target === buttonWidthInput ||
+                e.target === buttonHeightInput ||
+                e.target === buttonTextInput ||
+                e.target === buttonTimeInput
+            );
 
-                button.position.x = `${xPercent.toFixed(2)}%`;
-                button.position.y = `${yPercent.toFixed(2)}%`;
-                if (!button.style) button.style = {};
-                button.style.width = `${widthPercent.toFixed(2)}%`;
-                button.style.height = `${heightPercent.toFixed(2)}%`;
+            // Always update basic properties
+            button.text = buttonTextInput.value || 'Button';
+            button.time = parseFloat(buttonTimeInput.value) || 0;
+            button.linkType = buttonLinkType.value || 'node';
+            button.target = buttonLinkType.value === 'url' ? 
+                (buttonTargetUrl.value || '') : 
+                (buttonTargetNode.value || '');
+            
+            // Update animation properties
+            if (!e || e.target === animationType || e.target === animationDirection || e.target === animationDuration) {
+                button.animation = { 
+                    type: animationType.value || 'none',
+                    direction: animationDirection.value || 'left',
+                    duration: animationDuration.value || '1'
+                };
             }
+            
+            // Update animate out settings
+            const animateOutCheckbox = document.getElementById('animate-out-checkbox');
+            const animateOutDelay = document.getElementById('animate-out-delay');
+            
+            if (animateOutCheckbox) {
+                button.animateOut = button.animateOut || {};
+                button.animateOut.enabled = animateOutCheckbox.checked;
+                
+                if (animateOutDelay) {
+                    button.animateOut.delay = parseFloat(animateOutDelay.value) || 5;
+                }
+            }
+            
+            // Only update position and size if the related inputs were changed
+            if (needsFullRender) {
+                const containerRect = nodeVideoButtonsOverlay.getBoundingClientRect();
+                if (containerRect.width > 0 && containerRect.height > 0) {
+                    const xPercent = (parseFloat(buttonPosXInput.value) / containerRect.width) * 100;
+                    const yPercent = (parseFloat(buttonPosYInput.value) / containerRect.height) * 100;
+                    const widthPercent = (parseFloat(buttonWidthInput.value) / containerRect.width) * 100;
+                    const heightPercent = (parseFloat(buttonHeightInput.value) / containerRect.height) * 100;
+
+                    button.position.x = `${Math.max(0, Math.min(xPercent, 100)).toFixed(2)}%`;
+                    button.position.y = `${Math.max(0, Math.min(yPercent, 100)).toFixed(2)}%`;
+                    button.style.width = `${Math.max(1, Math.min(widthPercent, 100)).toFixed(2)}%`;
+                    button.style.height = `${Math.max(1, Math.min(heightPercent, 100)).toFixed(2)}%`;
+                }
+            }
+            
+            // Update style properties without affecting dimensions
+            const style = button.style;
+            
+            // Only update the style property that was changed
+            if (!e || e.target === document.getElementById('button-color-input')) {
+                style.color = document.getElementById('button-color-input').value || '#ffffff';
+            }
+            if (!e || e.target === document.getElementById('button-bgcolor-input')) {
+                style.backgroundColor = document.getElementById('button-bgcolor-input').value || '#007bff';
+            }
+            if (!e || e.target === document.getElementById('button-font-family-input')) {
+                style.fontFamily = document.getElementById('button-font-family-input').value || 'Arial, sans-serif';
+            }
+            if (!e || e.target === document.getElementById('button-font-size-input')) {
+                const fontSize = parseInt(document.getElementById('button-font-size-input').value) || 16;
+                style.fontSize = `${Math.max(8, Math.min(fontSize, 72))}px`;
+            }
+            if (!e || e.target === document.getElementById('button-padding-input')) {
+                const padding = parseInt(document.getElementById('button-padding-input').value) || 10;
+                style.padding = `${Math.max(0, Math.min(padding, 50))}px`;
+            }
+            if (!e || e.target === document.getElementById('button-border-radius-input')) {
+                const borderRadius = parseInt(document.getElementById('button-border-radius-input').value) || 5;
+                style.borderRadius = `${Math.max(0, Math.min(borderRadius, 50))}%`;
+            }
+            if (!e || e.target === document.getElementById('button-border-input')) {
+                style.border = document.getElementById('button-border-input').value || 'none';
+            }
+            
+            // Ensure display properties are set for proper rendering
+            style.display = 'flex';
+            style.alignItems = 'center';
+            style.justifyContent = 'center';
+            style.position = 'absolute';
+            
             saveProjects();
-            renderButtons();
+            
+            // Only update the specific button's style instead of re-rendering everything
+            const buttonElement = document.querySelector(`.video-overlay-button[data-button-id="${selectedButtonId}"]`);
+            if (buttonElement) {
+                // Apply all current styles to the button element
+                Object.assign(buttonElement.style, button.style);
+                
+                // Update animation classes if needed
+                if (button.animation && button.animation.type !== 'none') {
+                    const animClass = button.animation.type === 'slide' ? 
+                        `anim-slide-${button.animation.direction}` : 
+                        `anim-${button.animation.type}`;
+                    
+                    // Remove all animation classes first
+                    buttonElement.className = 'video-overlay-button';
+                    
+                    // Add the current animation class
+                    if (button.animation.type !== 'none') {
+                        buttonElement.classList.add(animClass);
+                        buttonElement.style.animationDuration = `${button.animation.duration}s`;
+                    }
+                }
+            } else {
+                // Fallback to full render if button element not found
+                renderButtons();
+            }
         };
-        [buttonTextInput, buttonTimeInput, buttonLinkType, buttonTargetNode, buttonTargetUrl, buttonPosXInput, buttonPosYInput, buttonWidthInput, buttonHeightInput, animationType, animationDirection, animationDuration].forEach(el => el.addEventListener('change', updateButtonFromEditor));
+        // Get all style-related inputs
+        const styleInputs = [
+            buttonTextInput, buttonTimeInput, buttonLinkType, buttonTargetNode, buttonTargetUrl,
+            buttonPosXInput, buttonPosYInput, buttonWidthInput, buttonHeightInput,
+            animationType, animationDirection, animationDuration,
+            document.getElementById('button-color-input'),
+            document.getElementById('button-bgcolor-input'),
+            document.getElementById('button-font-family-input'),
+            document.getElementById('button-font-size-input'),
+            document.getElementById('button-padding-input'),
+            document.getElementById('button-border-radius-input'),
+            document.getElementById('button-border-input'),
+            document.getElementById('animate-out-checkbox'),
+            document.getElementById('animate-out-delay')
+        ];
+        
+        // Add event listeners to all inputs
+        styleInputs.forEach(el => {
+            if (el) {
+                el.addEventListener('change', updateButtonFromEditor);
+                // For color inputs, also update on input for live preview
+                if (el.type === 'color' || el.type === 'range') {
+                    el.addEventListener('input', updateButtonFromEditor);
+                }
+            }
+        });
+
+        // Toggle animate out options
+        const animateOutCheckbox = document.getElementById('animate-out-checkbox');
+        const animateOutOptions = document.querySelector('.animate-out-options');
+        
+        if (animateOutCheckbox && animateOutOptions) {
+            animateOutCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    animateOutOptions.style.display = 'block';
+                } else {
+                    animateOutOptions.style.display = 'none';
+                }
+                updateButtonFromEditor();
+            });
+        }
         duplicateButtonBtn.addEventListener('click', () => {
             if (!selectedButtonId) return;
             const node = currentProject.videos.find(v => v.id === selectedNodeId);
@@ -559,45 +702,85 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedButtonId = buttonId;
         const node = currentProject.videos.find(v => v.id === selectedNodeId);
         const button = node.buttons.find(b => b.id === buttonId);
-        if (!button) return closeButtonEditor();
-        buttonEditorPanel.classList.remove('hidden');
-        buttonTextInput.value = button.text;
-        buttonTimeInput.value = button.time;
-        buttonLinkType.value = button.linkType;
+        if (!button) return;
+
+        // Ensure button has style object
+        if (!button.style) button.style = {};
+        if (!button.animation) button.animation = { type: 'none', direction: 'left', duration: '1' };
+        if (!button.animateOut) button.animateOut = { enabled: false, delay: 5 };
+
+        // Update button editor inputs
+        buttonTextInput.value = button.text || '';
+        buttonTimeInput.value = button.time || 0;
+        buttonLinkType.value = button.linkType || 'node';
+        buttonTargetNode.value = button.target || '';
+        buttonTargetUrl.value = button.target || '';
+        
+        // Update position and size inputs
         const containerRect = nodeVideoButtonsOverlay.getBoundingClientRect();
         if (containerRect.width > 0 && containerRect.height > 0) {
-            buttonPosXInput.value = (parseFloat(button.position.x) / 100 * containerRect.width).toFixed(0);
-            buttonPosYInput.value = (parseFloat(button.position.y) / 100 * containerRect.height).toFixed(0);
-            buttonWidthInput.value = (parseFloat(button.style.width) / 100 * containerRect.width).toFixed(0);
-            buttonHeightInput.value = (parseFloat(button.style.height) / 100 * containerRect.height).toFixed(0);
+            const x = button.position ? parseFloat(button.position.x) || 40 : 40;
+            const y = button.position ? parseFloat(button.position.y) || 80 : 80;
+            const width = button.style.width ? parseFloat(button.style.width) : 20;
+            const height = button.style.height ? parseFloat(button.style.height) : 10;
+            
+            buttonPosXInput.value = (x / 100 * containerRect.width).toFixed(1);
+            buttonPosYInput.value = (y / 100 * containerRect.height).toFixed(1);
+            buttonWidthInput.value = (width / 100 * containerRect.width).toFixed(1);
+            buttonHeightInput.value = (height / 100 * containerRect.height).toFixed(1);
         }
-        buttonTargetNode.innerHTML = '<option value="">Select node...</option>';
-        currentProject.videos.forEach(video => {
-            if (video.id === selectedNodeId) return;
-            const option = document.createElement('option');
-            option.value = video.id;
-            option.textContent = video.name;
-            buttonTargetNode.appendChild(option);
-        });
-        if (button.linkType === 'url') {
-            urlLinkContainer.style.display = 'block';
-            nodeLinkContainer.style.display = 'none';
-            buttonTargetUrl.value = button.target;
+        
+        // Update style inputs
+        document.getElementById('button-color-input').value = button.style.color || '#ffffff';
+        document.getElementById('button-bgcolor-input').value = button.style.backgroundColor || '#007bff';
+        document.getElementById('button-font-family-input').value = button.style.fontFamily || 'Arial, sans-serif';
+        document.getElementById('button-font-size-input').value = button.style.fontSize ? 
+            parseInt(button.style.fontSize) : 16;
+        document.getElementById('button-padding-input').value = button.style.padding ? 
+            parseInt(button.style.padding) : 10;
+        document.getElementById('button-border-radius-input').value = button.style.borderRadius ? 
+            parseInt(button.style.borderRadius) : 5;
+        document.getElementById('button-border-input').value = button.style.border || 'none';
+        
+        // Update animation inputs
+        animationType.value = button.animation.type || 'none';
+        animationDirection.value = button.animation.direction || 'left';
+        animationDuration.value = button.animation.duration || '1';
+        
+        // Update animate out inputs
+        const animateOutCheckbox = document.getElementById('animate-out-checkbox');
+        const animateOutDelay = document.getElementById('animate-out-delay');
+        const animateOutOptions = document.querySelector('.animate-out-options');
+        
+        if (button.animateOut) {
+            animateOutCheckbox.checked = button.animateOut.enabled || false;
+            animateOutDelay.value = button.animateOut.delay || 5;
+            if (animateOutOptions) {
+                animateOutOptions.style.display = button.animateOut.enabled ? 'block' : 'none';
+            }
         } else {
-            urlLinkContainer.style.display = 'none';
-            nodeLinkContainer.style.display = 'block';
-            buttonTargetNode.value = button.target;
+            animateOutCheckbox.checked = false;
+            animateOutDelay.value = 5;
+            if (animateOutOptions) {
+                animateOutOptions.style.display = 'none';
+            }
         }
-        animationType.value = button.animation.type;
-        animationDirection.value = button.animation.direction;
-        animationDuration.value = button.animation.duration;
+        
+        // Toggle direction group based on animation type
+        document.getElementById('anim-direction-group').style.display = 
+            (button.animation.type === 'slide') ? 'block' : 'none';
+            
+        // Show/hide URL input based on link type
+        document.getElementById('node-link-container').style.display = 
+            (buttonLinkType.value === 'node') ? 'block' : 'none';
+        document.getElementById('url-link-container').style.display = 
+            (buttonLinkType.value === 'url') ? 'block' : 'none';
+            
+        // Show the button editor panel
+        document.getElementById('button-editor-panel').classList.remove('hidden');
+        
+        // Update the button preview
         renderButtons();
-
-        // jump playhead to button start
-        if (!isNaN(button.time)) {
-            nodeVideoPreview.currentTime = button.time;
-            handlePlayheadUpdate();
-        }
     };
 
     const closeButtonEditor = () => {

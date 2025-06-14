@@ -26,9 +26,109 @@
     pointer-events: none; /* Allow clicks to pass through to the video below */
 }
 
+/* Button Animations */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes slideInLeft {
+    from { transform: translateX(-100%) translateY(-50%); opacity: 0; }
+    to { transform: translateX(0) translateY(-50%); opacity: 1; }
+}
+
+@keyframes slideOutLeft {
+    from { transform: translateX(0) translateY(-50%); opacity: 1; }
+    to { transform: translateX(-100%) translateY(-50%); opacity: 0; }
+}
+
+@keyframes slideInRight {
+    from { transform: translateX(100%) translateY(-50%); opacity: 0; }
+    to { transform: translateX(0) translateY(-50%); opacity: 1; }
+}
+
+@keyframes slideOutRight {
+    from { transform: translateX(0) translateY(-50%); opacity: 1; }
+    to { transform: translateX(100%) translateY(-50%); opacity: 0; }
+}
+
+@keyframes slideInTop {
+    from { transform: translateY(-100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideOutTop {
+    from { transform: translateY(0); opacity: 1; }
+    to { transform: translateY(-100%); opacity: 0; }
+}
+
+@keyframes slideInBottom {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideOutBottom {
+    from { transform: translateY(0); opacity: 1; }
+    to { transform: translateY(100%); opacity: 0; }
+}
+
 .video-overlay-button {
-    pointer-events: auto; /* Make the buttons clickable */
+    pointer-events: auto;
     cursor: grab;
+    animation-fill-mode: forwards;
+    position: absolute;
+    left: 0;
+    top: 0;
+    opacity: 1;
+    transition: none;
+    will-change: transform, opacity;
+    transform-origin: center;
+}
+
+/* Animation Classes */
+.anim-fade-in {
+    animation-name: fadeIn;
+}
+
+.anim-fade-out {
+    animation-name: fadeOut;
+}
+
+.anim-slide-left {
+    animation-name: slideInLeft;
+}
+
+.anim-slide-out-left {
+    animation-name: slideOutLeft;
+}
+
+.anim-slide-right {
+    animation-name: slideInRight;
+}
+
+.anim-slide-out-right {
+    animation-name: slideOutRight;
+}
+
+.anim-slide-top {
+    animation-name: slideInTop;
+}
+
+.anim-slide-out-top {
+    animation-name: slideOutTop;
+}
+
+.anim-slide-bottom {
+    animation-name: slideInBottom;
+}
+
+.anim-slide-out-bottom {
+    animation-name: slideOutBottom;
 }
 
 /* Resize Handles */
