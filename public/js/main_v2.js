@@ -18,7 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const dashboardView = getElement('dashboard');
     const editorView = getElement('editor');
-    const projectGrid = getElement('project-grid');
     const newProjectBtn = getElement('new-project-btn');
     const backToDashboardBtn = getElement('back-to-dashboard-btn');
     const projectTitleEditor = getElement('project-title-editor');
@@ -56,6 +55,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportProjectBtn = getElement('export-project-btn');
     const previewOverlay = getElement('preview-overlay');
     const closePreviewBtn = getElement('close-preview-btn');
+    const projectSearchInput = getElement('project-search');
+    const themeToggle = document.getElementById('theme-toggle');
+    const connectionsSvg = document.getElementById('connections-svg');
 
     let projects = [];
     let currentProject = null;
@@ -64,32 +66,54 @@ document.addEventListener('DOMContentLoaded', () => {
     let draggedButtonElement = null;
     let hlsInstance = null;
 
-    const loadProjects = () => JSON.parse(localStorage.getItem('interactive-video-projects') || '[]');
+    const loadProjects = () => {
+        const loadedProjects = JSON.parse(localStorage.getItem('interactive-video-projects') || '[]');
+        return loadedProjects.map(project => ({
+            ...project,
+            startNodeId: project.startNodeId || null, // Ensure startNodeId exists, default to null
+            videos: project.videos || [], // Ensure videos array exists
+            connections: project.connections || [] // Ensure connections array exists
+        }));
+    };
     const saveProjects = () => localStorage.setItem('interactive-video-projects', JSON.stringify(projects));
 
-    const renderProjects = () => {
-        projectGrid.innerHTML = '';
-        projects.forEach(project => {
-            const card = document.createElement('div');
-            card.className = 'project-card';
-            card.dataset.id = project.id;
-            card.innerHTML = `<h3>${project.name}</h3><p>${project.videos.length} videos</p><div class="card-actions"><button class="edit-btn">Edit</button><button class="danger delete-btn">Delete</button></div>`;
-            projectGrid.appendChild(card);
+    const renderProjects = (filter='') => {
+        const container = getElement('projects-list');
+        if(!container) return;
+        container.innerHTML='';
+        const list = [...projects];
+        list.sort((a,b)=>a.name.localeCompare(b.name));
+        list.filter(p=>p.name.toLowerCase().includes(filter.toLowerCase())).forEach(project=>{
+            const card=document.createElement('div');
+            card.className='project-card';
+            card.innerHTML=`<h3>${project.name}</h3><p>${project.videos.length} videos</p>`;
+            const editBtn=document.createElement('button');editBtn.textContent='Edit';editBtn.onclick=()=>navigateTo('editor',project.id);
+            const dupBtn=document.createElement('button');dupBtn.textContent='Duplicate';dupBtn.onclick=()=>{const copy=JSON.parse(JSON.stringify(project));copy.id=`proj-${Date.now()}`;copy.name=project.name+' copy';projects.push(copy);saveProjects();renderProjects(projectSearchInput.value);} ;
+            const delBtn=document.createElement('button');delBtn.textContent='Delete';delBtn.className='danger';delBtn.onclick=()=>{if(confirm('Delete project?')){projects=projects.filter(p=>p.id!==project.id);saveProjects();renderProjects(projectSearchInput.value);} };
+            card.append(editBtn,dupBtn,delBtn);
+            container.appendChild(card);
         });
     };
 
     const renderNodes = () => {
-        if (!currentProject) return;
         nodesContainer.innerHTML = '';
-        currentProject.videos.forEach(video => {
+        if (!currentProject) return;
+        currentProject.videos.forEach(node => {
             const nodeEl = document.createElement('div');
-            nodeEl.className = `video-node ${video.id === selectedNodeId ? 'selected' : ''}`;
-            nodeEl.dataset.nodeId = video.id;
-            nodeEl.style.left = video.x || '10px';
-            nodeEl.style.top = video.y || '10px';
-            nodeEl.innerHTML = `<h4>${video.name}</h4>`;
+            nodeEl.className = 'video-node';
+            nodeEl.dataset.id = node.id;
+            nodeEl.style.left = node.x || '0px';
+            nodeEl.style.top = node.y || '0px';
+            nodeEl.innerHTML = `<h4>${node.name}</h4>`;
+            // connectors
+            const inputDot=document.createElement('div');inputDot.className='node-input';inputDot.dataset.nodeTarget=node.id;
+            const outputDot=document.createElement('div');outputDot.className='node-output';outputDot.dataset.nodeSource=node.id;
+            outputDot.addEventListener('mousedown',startConnectionDrag);
+            inputDot.addEventListener('mouseup',finishConnectionDrag);
+            nodeEl.append(inputDot,outputDot);
             nodesContainer.appendChild(nodeEl);
         });
+        renderConnections();
     };
 
     const renderButtons = () => {
@@ -292,20 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderProjects();
             navigateTo('editor', project.id);
         });
-        projectGrid.addEventListener('click', e => {
-            const card = e.target.closest('.project-card');
-            if (!card) return;
-            const projectId = card.dataset.id;
-            if (e.target.classList.contains('edit-btn')) navigateTo('editor', projectId);
-            if (e.target.classList.contains('delete-btn')) {
-                if (confirm('Delete this project?')) {
-                    projects = projects.filter(p => p.id !== projectId);
-                    saveProjects();
-                    renderProjects();
-                }
-            }
-        });
-        backToDashboardBtn.addEventListener('click', () => navigateTo('dashboard'));
+        backToDashboardBtn.addEventListener('click', () => { saveProjects(); navigateTo('dashboard');});
         addVideoBtn.addEventListener('click', () => {
             const name = prompt('Enter node name:');
             if (!name || !currentProject) return;
@@ -315,9 +326,9 @@ document.addEventListener('DOMContentLoaded', () => {
             renderNodes();
             openNodeEditor(node.id);
         });
-        nodesContainer.addEventListener('click', e => {
+        nodesContainer.addEventListener('dblclick', e => {
             const nodeEl = e.target.closest('.video-node');
-            if (nodeEl) openNodeEditor(nodeEl.dataset.nodeId);
+            if (nodeEl) openNodeEditor(nodeEl.dataset.id);
         });
         closePanelBtn.addEventListener('click', closeNodeEditor);
         nodeNameInput.addEventListener('change', e => {
@@ -406,35 +417,132 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         previewProjectBtn.addEventListener('click', () => {
-            if (!currentProject || currentProject.videos.length === 0) return alert('Project is empty.');
-            openPreview(currentProject.videos[0].id);
+            if (!currentProject || currentProject.videos.length === 0) {
+                alert('Project is empty or no videos to preview.');
+                return;
+            }
+            const effectiveStartNodeId = currentProject.startNodeId || 
+                                       (currentProject.videos[0] ? currentProject.videos[0].id : null);
+            if (effectiveStartNodeId) {
+                openPreview(effectiveStartNodeId);
+            } else {
+                alert('No start node defined and no videos in project to preview.');
+            }
         });
+
         nodeVideoPreview.addEventListener('timeupdate', handlePlayheadUpdate);
+        projectSearchInput.addEventListener('input', e => renderProjects(e.target.value));
+
+        themeToggle.addEventListener('change', () => {
+            document.body.classList.toggle('dark-mode', themeToggle.checked);
+            document.body.classList.toggle('light-mode', !themeToggle.checked);
+        });
+
+        // Start Node checkbox listener
+        nodeIsStartNodeCheckbox.addEventListener('change', () => {
+            if (!currentProject || !selectedNodeId) return;
+            const node = currentProject.videos.find(v => v.id === selectedNodeId);
+            if (!node) return;
+
+            if (nodeIsStartNodeCheckbox.checked) {
+                currentProject.startNodeId = selectedNodeId;
+            } else {
+                if (currentProject.startNodeId === selectedNodeId) {
+                    currentProject.startNodeId = null;
+                }
+            }
+            saveProjects();
+            renderNodes(); // Re-render to reflect potential start node visual changes
+        });
     };
 
     const navigateTo = (view, projectId = null) => {
-        dashboardView.classList.add('hidden');
-        editorView.classList.add('hidden');
-        if (view === 'editor') {
-            currentProject = projects.find(p => p.id === projectId);
-            if (!currentProject) return navigateTo('dashboard');
-            projectTitleEditor.textContent = currentProject.name;
-            editorView.classList.remove('hidden');
-            renderNodes();
-        } else {
+        document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+        if (view === 'dashboard') {
+            document.getElementById('dashboard').classList.add('active');
             currentProject = null;
-            dashboardView.classList.remove('hidden');
-            renderProjects();
+            selectedNodeId = null; // Clear selected node when going to dashboard
+            closeNodeEditor(); // Close editor panel if open
+            closeButtonEditor(); // Close button editor if open
+        } else if (view === 'editor') {
+            document.getElementById('editor').classList.add('active');
+            currentProject = projects.find(p => p.id === projectId);
+            if (!currentProject) {
+                console.error('Project not found:', projectId, 'Navigating to dashboard.');
+                return navigateTo('dashboard');
+            }
+            projectTitleEditor.textContent = currentProject.name;
+            renderNodes();
+            renderConnections(); // Render connections for the current project
+        } else {
+            console.warn('Unknown view:', view, 'Navigating to dashboard.');
+            navigateTo('dashboard');
         }
     };
+
+    // ---- End Action UI elements ----
+    const nodeEndActionSelect = document.getElementById('node-end-action');
+    const nodeEndTargetNodeSelect = document.getElementById('node-end-target-node');
+    const nodeEndTargetUrlInput = document.getElementById('node-end-target-url');
+    const nodeIsStartNodeCheckbox = getElement('node-is-start-node'); // Added for Start Node checkbox
+
+    const updateEndActionVisibility = () => {
+        const val = nodeEndActionSelect.value;
+        nodeEndTargetNodeSelect.style.display = val === 'node' ? 'block' : 'none';
+        nodeEndTargetUrlInput.style.display = val === 'url' ? 'block' : 'none';
+    };
+
+    // populate node dropdown whenever nodes list changes
+    const refreshTargetNodeDropdown = () => {
+        nodeEndTargetNodeSelect.innerHTML = '';
+        currentProject.videos.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.id;
+            opt.textContent = v.name;
+            nodeEndTargetNodeSelect.appendChild(opt);
+        });
+    };
+
+    // persist changes to selected node
+    const persistEndAction = () => {
+        const node = currentProject.videos.find(v => v.id === selectedNodeId);
+        if (!node) return;
+        node.endAction = {
+            type: nodeEndActionSelect.value,
+            targetNode: nodeEndTargetNodeSelect.value || '',
+            targetUrl: nodeEndTargetUrlInput.value || ''
+        };
+        saveProjects();
+    };
+
+    nodeEndActionSelect.addEventListener('change', () => { updateEndActionVisibility(); persistEndAction(); });
+    nodeEndTargetNodeSelect.addEventListener('change', persistEndAction);
+    nodeEndTargetUrlInput.addEventListener('change', persistEndAction);
 
     const openNodeEditor = (nodeId) => {
         selectedNodeId = nodeId;
         const node = currentProject.videos.find(v => v.id === nodeId);
         if (!node) return;
+
         nodeNameInput.value = node.name;
         nodeUrlInput.value = node.url;
         loadVideo(nodeVideoPreview, node.url);
+
+        // refresh end action dropdown and values
+        refreshTargetNodeDropdown();
+        const act = node.endAction || {type:'none', targetNode:'', targetUrl:''};
+        nodeEndActionSelect.value = act.type;
+        nodeEndTargetNodeSelect.value = act.targetNode;
+        nodeEndTargetUrlInput.value = act.targetUrl;
+        updateEndActionVisibility();
+
+        // Set Start Node checkbox state
+        if (currentProject) {
+            nodeIsStartNodeCheckbox.checked = (currentProject.startNodeId === nodeId);
+        } else {
+            nodeIsStartNodeCheckbox.checked = false;
+        }
+
         nodeEditorPanel.classList.remove('hidden');
         renderButtons();
         renderNodes(); // To update selection style
@@ -521,16 +629,137 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         const onMouseUp = () => {
             if (!draggedNode) return;
-            const node = currentProject.videos.find(v => v.id === draggedNode.dataset.nodeId);
+            const node = currentProject.videos.find(v => v.id === draggedNode.dataset.id);
             if (node) {
                 node.x = draggedNode.style.left;
                 node.y = draggedNode.style.top;
                 saveProjects();
+                renderConnections(); // Redraw lines after node moves
             }
             draggedNode = null;
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', onMouseUp);
         };
+    };
+
+    let tempPath = null;
+    let dragListeners={move:null,up:null};
+    let connectionDragSrc=null;
+const startConnectionDrag=(e)=>{
+        e.stopPropagation();
+        const srcId=e.target.dataset.nodeSource;
+        const startRect=e.target.getBoundingClientRect();
+        const svgRect=connectionsSvg.getBoundingClientRect();
+        const startX=startRect.left+startRect.width/2 - svgRect.left;
+        const startY=startRect.top+startRect.height/2 - svgRect.top;
+        connectionDragSrc=srcId;
+        tempPath=document.createElementNS('http://www.w3.org/2000/svg','path');
+        tempPath.setAttribute('d',`M ${startX} ${startY} C ${startX+50} ${startY}, ${startX+50} ${startY}, ${startX+50} ${startY}`);
+        tempPath.setAttribute('fill','none');
+        tempPath.setAttribute('stroke','#03a9f4');
+        tempPath.setAttribute('stroke-width','2');
+        tempPath.dataset.src=srcId;
+        connectionsSvg.appendChild(tempPath);
+        const onMove=(ev)=>{
+            if(!tempPath) return;
+            const x=ev.clientX - svgRect.left;
+            const y=ev.clientY - svgRect.top;
+            const midX=(startX+x)/2;
+            tempPath.setAttribute('d',`M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${y}, ${x} ${y}`);
+        };
+        const onUp=(ev)=>{
+            // determine drop target
+            const dropEl=document.elementFromPoint(ev.clientX,ev.clientY);
+            if(dropEl && dropEl.classList.contains('node-input')){
+                const dstId=dropEl.dataset.nodeTarget;
+                if(connectionDragSrc && dstId && connectionDragSrc!==dstId){
+                    if(!currentProject.connections) currentProject.connections=[];
+                    currentProject.connections.push({from:connectionDragSrc,to:dstId});
+                    saveProjects();
+                }
+            }
+            renderConnections();
+            document.removeEventListener('mousemove',dragListeners.move);
+            document.removeEventListener('mouseup',dragListeners.up);
+            if(tempPath){tempPath.remove(); tempPath=null;}
+            connectionDragSrc=null;
+        };
+        dragListeners={move:onMove,up:onUp};
+        document.addEventListener('mousemove',onMove);
+        document.addEventListener('mouseup',onUp);
+    };
+
+    const finishConnectionDrag=(e)=>{
+        if(!tempPath) return;
+        const dstId=e.target.dataset.nodeTarget;
+        const srcId=tempPath.dataset.src;
+        if(srcId && dstId && srcId!==dstId){
+            if(!currentProject.connections) currentProject.connections=[];
+            currentProject.connections.push({from:srcId,to:dstId});
+
+            // Update source node's endAction to play the connected node
+            const sourceNode = currentProject.videos.find(v => v.id === srcId);
+            if (sourceNode) {
+                sourceNode.endAction = {
+                    type: 'node',
+                    targetNode: dstId,
+                    targetUrl: '' 
+                };
+
+                // If this source node is currently being edited, update the panel
+                if (selectedNodeId === srcId) {
+                    nodeEndActionSelect.value = 'node';
+                    refreshTargetNodeDropdown(); // Ensure dropdown is populated before setting value
+                    nodeEndTargetNodeSelect.value = dstId;
+                    updateEndActionVisibility();
+                }
+            }
+
+            saveProjects();
+            renderConnections();
+        }
+        if(tempPath){tempPath.remove(); tempPath=null;}
+        // remove listeners to prevent null errors
+        document.removeEventListener('mousemove',dragListeners.move);
+        document.removeEventListener('mouseup',dragListeners.up);
+        e.stopPropagation();
+    };
+
+    const renderConnections=()=>{
+        connectionsSvg.innerHTML='';
+        if(!currentProject||!currentProject.connections) return;
+        currentProject.connections.forEach((conn,i)=>{
+            const fromEl=nodesContainer.querySelector(`.node-output[data-node-source="${conn.from}"]`);
+            const toEl=nodesContainer.querySelector(`.node-input[data-node-target="${conn.to}"]`);
+            if(!fromEl||!toEl) return;
+            const svgRect=connectionsSvg.getBoundingClientRect();
+            const fromRect=fromEl.getBoundingClientRect();
+            const toRect=toEl.getBoundingClientRect();
+            const x1=fromRect.left+fromRect.width/2 - svgRect.left;
+            const y1=fromRect.top+fromRect.height/2 - svgRect.top;
+            const x2=toRect.left+toRect.width/2 - svgRect.left;
+            const y2=toRect.top+toRect.height/2 - svgRect.top;
+            const midX=(x1+x2)/2;
+            const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+            path.classList.add('connection');
+            path.setAttribute('pointer-events','stroke');
+            path.dataset.index=i;
+            path.setAttribute('d',`M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`);
+            path.setAttribute('fill','none');
+            path.setAttribute('stroke','#03a9f4');
+            path.setAttribute('stroke-width','6');
+            console.log('Attaching click listener to path:', path, 'for connection index:', i);
+            path.addEventListener('click',(event)=>{ // Added event parameter
+                console.log('Connection path clicked!', event); // Log the event object
+                console.log('Clicked path data-index:', event.target.dataset.index);
+                if(confirm('Delete this connection?')){
+                    currentProject.connections.splice(i,1);
+                    saveProjects();
+                    renderConnections();
+                }
+            });
+            connectionsSvg.appendChild(path);
+        });
     };
 
     const openPreview = (startNodeId) => {
@@ -558,13 +787,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    function init() {
-        projects = loadProjects();
+    const init = () => {
+        projects = loadProjects(); // projects array is now initialized with startNodeId
         renderProjects();
-        setupEventListeners();
         setupNodeDragging();
-        navigateTo('dashboard');
-    }
+        setupEventListeners();
+
+        // Logic to potentially load a specific project if ID is in URL (example)
+        const urlParams = new URLSearchParams(window.location.search);
+        const projectIdFromUrl = urlParams.get('projectId');
+        if (projectIdFromUrl) {
+            const projectToLoad = projects.find(p => p.id === projectIdFromUrl);
+            if (projectToLoad) {
+                navigateTo('editor', projectIdFromUrl);
+            } else {
+                console.warn('Project ID from URL not found, navigating to dashboard.');
+                navigateTo('dashboard');
+            }
+        } else {
+            navigateTo('dashboard'); // Default to dashboard if no project ID in URL
+        }
+    };
 
     init();
 });

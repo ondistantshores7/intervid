@@ -165,6 +165,13 @@ body.dark-mode #dashboard h2 {
     border-bottom-color: #444;
 }
 
+.projects-grid{
+    display:flex;
+    flex-wrap:wrap;
+    gap:20px;
+}
+.project-card{flex:0 0 200px;}
+
 .project-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -201,6 +208,7 @@ body.dark-mode .project-card {
     width: 100%;
     height: 100%;
     min-height: 500px; /* Ensure container has a size */
+    z-index: 1; /* Nodes above SVG container */
 }
 
 .card-actions {
@@ -251,7 +259,8 @@ body.dark-mode .primary-btn {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: var(--background-dark, #000);
+    opacity:0.95;
     z-index: 1000;
     display: flex;
     justify-content: center;
@@ -274,21 +283,25 @@ body.dark-mode .primary-btn {
 }
 
 body.light-mode .panel-container {
-    background-color: var(--background-light);
-    color: var(--text-light);
+    background-color: var(--background-light, #222);
+    color: #ffffff;
 }
+
 
 body.dark-mode .panel-container {
-    background-color: var(--background-dark);
-    color: var(--text-dark);
+    background-color: var(--background-dark, #000);
+    color: #ffffff;
 }
 
+
 .panel-header {
+    color:#fff;
     padding: 15px 20px;
     border-bottom: 1px solid var(--border-color);
 }
 
 .panel-content {
+    color:#fff;
     flex-grow: 1;
     padding: 20px;
     overflow-y: auto;
@@ -498,11 +511,7 @@ body.dark-mode #visual-flow-editor {
     border-color: #333;
 }
 
-#nodes-container {
-    position: relative;
-    width: 100%;
-    height: 100%;
-}
+
 
 .video-node {
     position: absolute;
@@ -512,18 +521,20 @@ body.dark-mode #visual-flow-editor {
     cursor: move;
     user-select: none;
     transition: box-shadow 0.2s;
-}
-
-body.light-mode .video-node {
-    background-color: var(--card-bg-light);
-    border: 1px solid #ccc;
-    box-shadow: var(--shadow-light);
+    border: 1px solid rgba(0,0,0,0.25);
+    transition: border-color 0.2s;
 }
 
 body.dark-mode .video-node {
-    background-color: var(--card-bg-dark);
-    border: 1px solid #444;
-    box-shadow: var(--shadow-dark);
+    border: 1px solid rgba(255,255,255,0.25);
+}
+
+.video-node.selected {
+    border-color: var(--primary-light);
+}
+
+body.dark-mode .video-node.selected {
+    border-color: var(--primary-dark);
 }
 
 .video-node:hover {
@@ -532,18 +543,6 @@ body.dark-mode .video-node {
 
 body.dark-mode .video-node:hover {
     box-shadow: 0 8px 16px rgba(0,0,0,0.4);
-}
-
-.video-node.selected {
-    border-width: 3px;
-}
-
-body.light-mode .video-node.selected {
-    border-color: var(--primary-light);
-}
-
-body.dark-mode .video-node.selected {
-    border-color: var(--primary-dark);
 }
 
 .video-node h4,
@@ -576,17 +575,44 @@ body.dark-mode .node-thumbnail-placeholder {
 }
 
 #connections-svg {
-    position: absolute;
-    top: 0;
-    left: 0;
-    pointer-events: none; /* Allows clicks to pass through to nodes */
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    z-index:2; /* Above nodes container, but SVG itself is pointer-events:none */
+    pointer-events: none; /* SVG container doesn't block clicks to nodes */
 }
 
 #connections-svg path {
-    stroke-width: 3px;
-    fill: none;
-    transition: stroke 0.2s;
+    pointer-events:stroke; /* Paths themselves are clickable */
+    cursor:pointer;
+    stroke-width:6px; /* Match JS, easier to click */
+    fill:none;
+    transition:stroke 0.2s;
 }
+
+/* End action dropdown width */
+#node-end-target-node,
+#node-end-target-url{
+    width:100%;
+    margin-top:8px;
+}
+
+.node-input,.node-output{
+    z-index:3;
+    position:absolute;
+    width:10px;height:10px;border-radius:50%;background:var(--primary-light);cursor:crosshair;
+    transform:translate(-50%,-50%);
+}
+body.dark-mode .node-input,body.dark-mode .node-output{background:var(--primary-dark);}
+.node-input{left:-5px;top:50%;}
+.node-output{right:-5px;top:50%;}
+.node-input.hover,.node-output.hover{box-shadow:0 0 0 3px rgba(0,0,0,0.2);} 
+
+/* connection path clickable */
+.connection{cursor:pointer;pointer-events:stroke;}
+
 
 /* Preview Overlay */
 #preview-overlay {
@@ -705,33 +731,6 @@ body.dark-mode #connections-svg path {
     color: #000000;
 }
 
-.node-output {
-    position: absolute;
-    right: -7px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 14px;
-    height: 14px;
-    background-color: #03a9f4;
-    border-radius: 50%;
-    cursor: crosshair;
-    border: 3px solid var(--background-light);
-    transition: transform 0.2s;
-}
-
-body.dark-mode .node-output {
-    border-color: var(--card-bg-dark);
-}
-
-.node-output:hover {
-    transform: translateY(-50%) scale(1.2);
-}
-
-.danger {
-    background-color: #e53935;
-    color: white;
-}
-
 /* --- Visual Button Editor Styles --- */
 .video-preview-container {
     position: relative; /* This is crucial for the overlay */
@@ -829,3 +828,11 @@ body.dark-mode .node-output {
     to { transform: translateY(0); opacity:1; }
 }
 .anim-slide-bottom { animation: slideInBottom 0.5s ease forwards; }
+
+.view-section {
+    display: none;
+}
+
+.view-section.active {
+    display: block;
+}

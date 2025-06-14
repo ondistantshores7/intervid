@@ -14,6 +14,7 @@ class IVSPlayer {
 
         this.buttonClickHandler = this.handleButtonClick.bind(this);
         this.buttonsContainer.addEventListener('click', this.buttonClickHandler);
+        this.videoEndedHandler = this.handleVideoEnd.bind(this); // Added for video end event
 
         this.loadVideo(startNodeId);
     }
@@ -45,6 +46,13 @@ class IVSPlayer {
 
         this.timeUpdateHandler = this.updateButtons.bind(this);
         this.videoEl.addEventListener('timeupdate', this.timeUpdateHandler);
+
+        // Handle video ending
+        if (this.videoEndedHandler) {
+            this.videoEl.removeEventListener('ended', this.videoEndedHandler);
+        }
+        this.videoEl.addEventListener('ended', this.videoEndedHandler);
+
         this.videoEl.play().catch(e => console.error('Preview playback failed:', e));
     }
 
@@ -99,6 +107,44 @@ class IVSPlayer {
         }
     }
 
+    handleVideoEnd() {
+        console.log('Video ended. Current node endAction:', this.currentNode.endAction);
+        const endAction = this.currentNode.endAction;
+
+        if (!endAction || !endAction.type) {
+            console.log('No end action defined or type is missing for node:', this.currentNode.id);
+            return; 
+        }
+
+        switch (endAction.type) {
+            case 'node':
+                if (endAction.targetNode) {
+                    console.log(`End action: Play node ${endAction.targetNode}`);
+                    this.loadVideo(endAction.targetNode);
+                } else {
+                    console.warn('End action type is "node", but no targetNode specified.');
+                }
+                break;
+            case 'url':
+                if (endAction.targetUrl) {
+                    console.log(`End action: Open URL ${endAction.targetUrl}`);
+                    window.open(endAction.targetUrl, '_blank');
+                } else {
+                    console.warn('End action type is "url", but no targetUrl specified.');
+                }
+                break;
+            case 'repeat':
+                console.log('End action: Repeat video.');
+                this.videoEl.currentTime = 0;
+                this.videoEl.play().catch(e => console.error('Repeat playback failed:', e));
+                break;
+            case 'none':
+            default:
+                console.log('End action: Do nothing.');
+                break;
+        }
+    }
+
     destroy() {
         if (this.hls) {
             this.hls.destroy();
@@ -108,6 +154,9 @@ class IVSPlayer {
             this.videoEl.src = '';
             if (this.timeUpdateHandler) {
                 this.videoEl.removeEventListener('timeupdate', this.timeUpdateHandler);
+            }
+            if (this.videoEndedHandler) { // Remove ended listener
+                this.videoEl.removeEventListener('ended', this.videoEndedHandler);
             }
         }
         if (this.buttonsContainer) {
