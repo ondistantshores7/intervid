@@ -1,3 +1,17 @@
+const hexToRgba = (hex, opacity) => {
+    let r = 0, g = 0, b = 0;
+    if (hex.length == 4) { // #RGB format
+        r = parseInt(hex[1] + hex[1], 16);
+        g = parseInt(hex[2] + hex[2], 16);
+        b = parseInt(hex[3] + hex[3], 16);
+    } else if (hex.length == 7) { // #RRGGBB format
+        r = parseInt(hex[1] + hex[2], 16);
+        g = parseInt(hex[3] + hex[4], 16);
+        b = parseInt(hex[5] + hex[6], 16);
+    }
+    return `rgba(${r},${g},${b},${opacity})`;
+};
+
 class IVSPlayer {
     constructor(overlayElement, projectData, startNodeId) {
         this.overlay = overlayElement;
@@ -117,14 +131,14 @@ class IVSPlayer {
                     });
                 }
             }
-            // Clean up buttons that are past their show time and have no active animations
+            // Clean up buttons that are past their show time
             else if (!isWithinShowTime && buttonEl) {
-                // For buttons with animateOut, removal handled after animation completes in animateOutButton()
-                if (button.animateOut?.enabled && buttonData?.hasAnimatedOut) {
-                    buttonEl.remove();
-                    this.activeButtons.delete(button.id);
+                if (button.animateOut?.enabled) {
+                    // Do not remove here; animateOutButton will handle removal after the out animation completes
+                    return;
                 }
-                // If animateOut is not enabled, keep button persistent across loops
+                // If animateOut is not enabled, you may choose to remove or keep persistent.
+                // Current behavior: keep persistent across loops, so we do nothing here.
             }
         });
     }
@@ -186,9 +200,8 @@ class IVSPlayer {
         
         const buttonEl = document.createElement('button');
         buttonEl.className = 'video-overlay-button';
-        buttonEl.textContent = buttonData.text;
         buttonEl.dataset.buttonId = buttonData.id;
-        
+
         // Apply base styles
         const buttonStyle = {
             position: 'absolute',
@@ -196,14 +209,34 @@ class IVSPlayer {
             top: buttonData.position?.y || '50%',
             pointerEvents: 'auto',
             boxSizing: 'border-box',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            ...buttonData.style
+            ...buttonData.style // User-defined styles
         };
+
+        if (buttonData.linkType === 'embed') {
+            buttonEl.classList.add('embed-container');
+            buttonEl.innerHTML = buttonData.embedCode || '';
+            // For embeds, we don't want flex centering, we want the content to fill the space.
+        } else {
+            buttonEl.textContent = buttonData.text;
+            // For text buttons, apply flex for centering
+            Object.assign(buttonStyle, {
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            });
+        }
         
         // Apply the base styles
         Object.assign(buttonEl.style, buttonStyle);
+
+        // Apply shadow style
+        if (buttonData.shadow && buttonData.shadow.enabled) {
+            const shadow = buttonData.shadow;
+            const rgbaColor = hexToRgba(shadow.color || '#000000', shadow.opacity !== undefined ? shadow.opacity : 0.5);
+            buttonEl.style.boxShadow = `${shadow.hOffset || 2}px ${shadow.vOffset || 2}px ${shadow.blur || 4}px ${shadow.spread || 0}px ${rgbaColor}`;
+        } else {
+            buttonEl.style.boxShadow = 'none';
+        }
         
         // Apply animation if specified
         if (buttonData.animation?.type !== 'none') {
@@ -232,7 +265,10 @@ class IVSPlayer {
         const buttonId = target.dataset.buttonId;
         const buttonData = this.currentNode.buttons.find(b => b.id === buttonId);
 
-        if (buttonData.linkType === 'url') {
+        if (buttonData.linkType === 'embed') {
+            // For embed types, do nothing; the embedded content handles interaction.
+            return;
+        } else if (buttonData.linkType === 'url') {
             let url = buttonData.target.trim();
             // Ensure the URL has a protocol (default to https:// if missing)
             if (url && !/^https?:\/\//i.test(url)) {
