@@ -43,10 +43,13 @@
                 <button id="back-to-dashboard-btn">&larr; Back to Projects</button>
                 <h2 id="project-title-editor"></h2>
                 <div class="editor-actions">
-                    <button id="add-video-btn" class="secondary-btn">+ Add Video</button>
-                    <button id="preview-project-btn" class="secondary-btn">Preview Project</button>
-                    <button id="export-project-btn">Export Project</button>
+                    <button id="add-video-btn" class="secondary-btn header-action-btn">+ Add Video</button>
+                    <button id="duplicate-node-btn" class="secondary-btn header-action-btn" title="Duplicate Selected Node" disabled>Duplicate Node</button>
+                    <button id="delete-node-btn" class="header-action-btn danger" title="Delete Selected Node" disabled>Delete Node</button>
+                    <button id="undo-main-btn" class="header-action-btn" title="Undo Last Action" disabled>&#x21A9;&#xFE0F; Undo</button>
                 </div>
+                <button id="preview-project-btn" class="secondary-btn">Preview Project</button>
+                <button id="export-project-btn" class="secondary-btn">Export Project</button>
             </header>
             <div id="visual-flow-editor">
                 <svg id="connections-svg" width="100%" height="100%"></svg>
@@ -58,7 +61,10 @@
                 <div class="panel-container">
                     <div class="panel-header">
                         <h3>Edit Node</h3>
-                        <button id="close-panel-btn">&times;</button>
+                        <div class="panel-header-actions">
+                            <button id="undo-node-panel-btn" class="panel-header-btn" title="Undo Last Action in Node" disabled>&#x21A9;&#xFE0F; Undo</button>
+                            <button id="close-panel-btn" class="panel-header-btn">&times;</button>
+                        </div>
                     </div>
                     <div class="panel-content">
                         <div class="node-main-content">
@@ -67,7 +73,7 @@
                                 <input type="text" id="node-name-input" class="form-control">
                             </div>
                             <div class="form-group">
-                                <label for="node-url-input">Cloudflare Video URL</label>
+                                <label for="node-url-input">Video URL</label>
                                 <input type="text" id="node-url-input" class="form-control">
                             </div>
                             <div class="form-group">

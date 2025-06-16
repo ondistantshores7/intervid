@@ -113,6 +113,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const animationDuration = getElement('animation-duration');
     const previewProjectBtn = getElement('preview-project-btn');
     const exportProjectBtn = getElement('export-project-btn');
+    const duplicateNodeBtn = getElement('duplicate-node-btn');
+    const deleteNodeBtn = getElement('delete-node-btn');
+    const undoMainBtn = getElement('undo-main-btn');
+    const undoNodePanelBtn = getElement('undo-node-panel-btn');
     const previewOverlay = getElement('preview-overlay');
     const closePreviewBtn = getElement('close-preview-btn');
     const projectSearchInput = getElement('project-search');
@@ -139,10 +143,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let projects = [];
     let currentProject = null;
+    let currentNode = null;
     let selectedNodeId = null;
     let selectedButtonId = null;
     let draggedButtonElement = null;
     let hlsInstance = null;
+
+    let undoStack = [];
+    const MAX_UNDO_STEPS = 20;
 
     const loadProjects = () => {
         const loadedProjects = JSON.parse(localStorage.getItem('interactive-video-projects') || '[]');
@@ -196,6 +204,42 @@ document.addEventListener('DOMContentLoaded', () => {
             nodeEl.dataset.id = node.id;
             nodeEl.style.left = node.x || '0px';
             nodeEl.style.top = node.y || '0px';
+            nodeEl.dataset.nodeId = node.id;
+
+            if (node.id === selectedNodeId) {
+                nodeEl.classList.add('node-selected');
+            }
+
+            nodeEl.addEventListener('click', (event) => {
+                event.stopPropagation(); // Prevent click from propagating to dashboard if nodes are ever nested
+
+                // Deselect previously selected node
+                if (selectedNodeId && selectedNodeId !== node.id) {
+                    const previouslySelectedElement = document.querySelector(`.video-node[data-node-id='${selectedNodeId}']`);
+                    if (previouslySelectedElement) {
+                        previouslySelectedElement.classList.remove('node-selected');
+                    }
+                }
+
+                // Toggle selection for the current node
+                if (selectedNodeId === node.id) {
+                    // Already selected, so deselect it
+                    nodeEl.classList.remove('node-selected');
+                    selectedNodeId = null;
+                    // TODO: Disable Duplicate/Delete buttons
+                    if(duplicateNodeBtn) duplicateNodeBtn.disabled = true;
+                    if(deleteNodeBtn) deleteNodeBtn.disabled = true;
+                } else {
+                    // Not selected, so select it
+                    nodeEl.classList.add('node-selected');
+                    selectedNodeId = node.id;
+                    // TODO: Enable Duplicate/Delete buttons
+                    if(duplicateNodeBtn) duplicateNodeBtn.disabled = false;
+                    if(deleteNodeBtn) deleteNodeBtn.disabled = false;
+                }
+                console.log('Selected node ID:', selectedNodeId);
+            });
+
             nodeEl.innerHTML = `<h4>${node.name}</h4>`;
             // connectors
             const inputDot=document.createElement('div');inputDot.className='node-input';inputDot.dataset.nodeTarget=node.id;
@@ -269,6 +313,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     const textSpan = document.createElement('span');
                     textSpan.textContent = button.text || 'Button';
                     bar.appendChild(textSpan);
+
+                    bar.dataset.buttonId = button.id; // Store button ID
+                    bar.addEventListener('click', (e) => {
+                        console.log('Timeline bar clicked:', e.currentTarget);
+                        const clickedButtonId = e.currentTarget.dataset.buttonId;
+                        console.log('Button ID from timeline bar:', clickedButtonId);
+                        if (clickedButtonId) {
+                            selectButton(clickedButtonId);
+                        }
+                    });
                     
                     timelineMarkers.appendChild(bar);
                 } else {
@@ -394,6 +448,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const node = currentProject.videos.find(v => v.id === selectedNodeId);
             const button = node.buttons.find(b => b.id === buttonId);
             if (button) {
+                pushToUndoStack(); // Save state before updating button position
                 const finalX = parseFloat(draggedButtonElement.style.left);
                 const finalY = parseFloat(draggedButtonElement.style.top);
 
@@ -481,6 +536,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const heightPct = (finalHeight / containerRect.height) * 100;
             const leftPct = (finalLeft / containerRect.width) * 100;
             const topPct = (finalTop / containerRect.height) * 100;
+            pushToUndoStack(); // Save state before updating button size/position
             button.style.width = `${widthPct.toFixed(2)}%`;
             button.style.height = `${heightPct.toFixed(2)}%`;
             button.position.x = `${leftPct.toFixed(2)}%`;
@@ -568,6 +624,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if(dashboardView) dashboardView.classList.add('active');
             currentProject = null;
             selectedNodeId = null;
+            if(duplicateNodeBtn) duplicateNodeBtn.disabled = true;
+            if(deleteNodeBtn) deleteNodeBtn.disabled = true;
             closeNodeEditor(); // Ensure editor panels are closed
             closeButtonEditor();
         } else if (view === 'editor') {
@@ -586,34 +644,97 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const getYoutubeVideoId = (url) => {
+        if (!url) return null;
+        // Standard YouTube watch URLs, short Youtu.be URLs, and embed URLs
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[2].length === 11) ? match[2] : null;
+    };
+
     // ---- Video Loading ----
-    const loadVideo = (videoElement, url) => {
+    let youtubeIframe = null; // Keep a reference to the iframe
+    let currentNodeEditorURL = null;
+
+    const loadVideo = (videoElement, url, options = {}) => {
+        const { autoplay = true } = options;
         if (!videoElement) return;
+
+        const container = videoElement.parentElement; // Assuming videoElement is inside node-video-preview-container
+        if (!youtubeIframe && container) {
+            youtubeIframe = document.createElement('iframe');
+            youtubeIframe.setAttribute('id', 'youtube-embed-preview');
+            youtubeIframe.setAttribute('width', '100%');
+            youtubeIframe.setAttribute('height', '100%');
+            youtubeIframe.setAttribute('frameborder', '0');
+            youtubeIframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+            youtubeIframe.setAttribute('allowfullscreen', '');
+            youtubeIframe.style.display = 'none'; // Initially hidden
+            container.appendChild(youtubeIframe);
+        }
+
+        // Reset HLS instance if it exists
         if (hlsInstance) {
             hlsInstance.destroy();
             hlsInstance = null;
         }
-        if (url && Hls.isSupported() && url.includes('.m3u8')) {
+
+        const youtubeVideoId = getYoutubeVideoId(url);
+
+        if (youtubeVideoId && youtubeIframe) {
+            videoElement.style.display = 'none'; // Hide original video element
+            videoElement.src = ''; // Clear src to stop any previous video
+            if (hlsInstance) { // Ensure HLS is detached if it was active
+                hlsInstance.destroy();
+                hlsInstance = null;
+            }
+            youtubeIframe.src = `https://www.youtube.com/embed/${youtubeVideoId}?autoplay=${autoplay ? 1 : 0}&modestbranding=1&rel=0`;
+            youtubeIframe.style.display = 'block';
+            // For YouTube, metadata and errors are handled by the iframe itself.
+            // We might not get `onloadedmetadata` or `onerror` events on the original videoElement.
+            // This means renderButtons() and handlePlayheadUpdate() might need adjustment if they strictly depend on these for YouTube.
+            // For now, let's assume basic playback is the goal.
+            renderButtons(); // Call this to clear/update buttons based on new video type
+            handlePlayheadUpdate();
+        } else if (url && Hls.isSupported() && url.includes('.m3u8')) {
             hlsInstance = new Hls();
             hlsInstance.loadSource(url);
             hlsInstance.attachMedia(videoElement);
-            hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => videoElement.play().catch(e => console.warn("Autoplay prevented:", e)));
-        } else if (url && (videoElement.canPlayType('application/vnd.apple.mpegurl') || videoElement.canPlayType('video/mp4'))) {
+            hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+                if (autoplay) videoElement.play().catch(e => console.warn("Autoplay prevented:", e));
+            });
+        } else if (url && (videoElement.canPlayType('application/vnd.apple.mpegurl') || videoElement.canPlayType('video/mp4') || videoElement.canPlayType('video/webm') || videoElement.canPlayType('video/ogg'))) {
+            if (youtubeIframe) youtubeIframe.style.display = 'none'; // Hide iframe
+            if (youtubeIframe) youtubeIframe.src = ''; // Clear iframe src
+            videoElement.style.display = 'block'; // Show original video element
             videoElement.src = url;
-            videoElement.play().catch(e => console.warn("Autoplay prevented:", e));
+            if (autoplay) videoElement.play().catch(e => console.warn("Autoplay prevented:", e));
         } else if (url) {
             console.error('Unsupported video format or HLS.js not available for:', url);
+            if (youtubeIframe) youtubeIframe.style.display = 'none';
+            if (youtubeIframe) youtubeIframe.src = '';
+            videoElement.style.display = 'block';
             videoElement.src = ''; // Clear src if unsupported
         } else {
+            if (youtubeIframe) youtubeIframe.style.display = 'none';
+            if (youtubeIframe) youtubeIframe.src = '';
+            videoElement.style.display = 'block';
             videoElement.src = ''; // Clear src if no URL
         }
-        videoElement.onloadedmetadata = () => {
-            renderButtons(); 
-            handlePlayheadUpdate(); 
-        };
-        videoElement.onerror = (e) => {
-            console.error('Error loading video:', e, 'URL:', url);
-        };
+
+        // Only set these for non-YouTube videos, as YouTube iframe handles its own events
+        if (!youtubeVideoId) {
+            videoElement.onloadedmetadata = () => {
+                renderButtons(); 
+                handlePlayheadUpdate(); 
+            };
+            videoElement.onerror = (e) => {
+                console.error('Error loading video:', e, 'URL:', url);
+                currentNodeEditorURL = null; // Clear on error
+            };
+        }
+        currentNodeEditorURL = url;
+
     };
 
     // ---- Node Editor ----
@@ -640,13 +761,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    const openNodeEditor = (nodeId) => {
+    const openNodeEditor = (nodeId, options = {}) => {
+        const { isUndoRedo = false, autoplay = true } = options;
         selectedNodeId = nodeId;
         const node = currentProject.videos.find(v => v.id === nodeId);
         if (!node) return;
         if(nodeNameInput) nodeNameInput.value = node.name;
         if(nodeUrlInput) nodeUrlInput.value = node.url || '';
-        loadVideo(nodeVideoPreview, node.url);
+        if (node.url !== currentNodeEditorURL) {
+            loadVideo(nodeVideoPreview, node.url, { autoplay });
+        }
         renderButtons(); 
         if(nodeEditorPanel) nodeEditorPanel.classList.remove('hidden');
         closeButtonEditor(); 
@@ -672,6 +796,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const closeNodeEditor = () => {
+        currentNodeEditorURL = null;
         if(nodeEditorPanel) nodeEditorPanel.classList.add('hidden');
         if (hlsInstance) {
             hlsInstance.destroy();
@@ -679,6 +804,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if(nodeVideoPreview) nodeVideoPreview.src = ''; 
         selectedNodeId = null;
+        if(duplicateNodeBtn) duplicateNodeBtn.disabled = true;
+        if(deleteNodeBtn) deleteNodeBtn.disabled = true;
     };
 
     const setupEventListeners = () => {
@@ -695,6 +822,7 @@ document.addEventListener('DOMContentLoaded', () => {
         addVideoBtn.addEventListener('click', () => {
             const name = prompt('Enter node name:');
             if (!name || !currentProject) return;
+            pushToUndoStack(); // Save state before adding new node
             const node = { id: `node-${Date.now()}`, name, url: '', buttons: [], x: '50px', y: '50px' };
             currentProject.videos.push(node);
             saveProjects();
@@ -709,6 +837,7 @@ document.addEventListener('DOMContentLoaded', () => {
         nodeNameInput.addEventListener('change', e => {
             const node = currentProject.videos.find(v => v.id === selectedNodeId);
             if (node) {
+                pushToUndoStack(); // Save state before changing node name
                 node.name = e.target.value;
                 saveProjects();
                 renderNodes();
@@ -717,6 +846,7 @@ document.addEventListener('DOMContentLoaded', () => {
         nodeUrlInput.addEventListener('change', e => {
             const node = currentProject.videos.find(v => v.id === selectedNodeId);
             if (node) {
+                pushToUndoStack(); // Save state before changing node URL
                 node.url = e.target.value;
                 loadVideo(nodeVideoPreview, node.url);
                 saveProjects();
@@ -725,6 +855,7 @@ document.addEventListener('DOMContentLoaded', () => {
         addButtonBtn.addEventListener('click', () => {
             const node = currentProject.videos.find(v => v.id === selectedNodeId);
             if (!node) return;
+            pushToUndoStack(); // Save state before adding new button
             const newButton = { id: `btn-${Date.now()}`, text: 'New Button', time: nodeVideoPreview.currentTime, duration: 5, linkType: 'node', target: '', embedCode: '', position: { x: '40%', y: '80%' }, style: { width: '15%', height: '10%', backgroundColor: '#007bff', color: '#ffffff', fontSize: '16px', padding: '10px 20px', border: 'none', borderRadius: '5px' }, animation: { type:'none', direction:'left', duration:'1' }, shadow: {
                         enabled: false,
                         color: '#000000',
@@ -842,7 +973,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (deleteButtonBtn) deleteButtonBtn.addEventListener('click', () => {
-            if (!selectedButtonId) return;
+            if (!selectedButtonId || !selectedNodeId || !currentProject) return;
+            // Push to stack *before* confirm, but pop if cancelled
+            pushToUndoStack();
+            if (!confirm('Are you sure you want to delete this button? This action can be undone.')) {
+                undoStack.pop(); // Remove the state pushed for this aborted action
+                updateUndoButtons(); // Reflect that the stack might be empty now
+                return;
+            }
             const node = currentProject.videos.find(v => v.id === selectedNodeId);
             if (node) {
                 node.buttons = node.buttons.filter(b => b.id !== selectedButtonId);
@@ -873,7 +1011,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (nodeVideoPreview) nodeVideoPreview.addEventListener('timeupdate', handlePlayheadUpdate);
         if (projectSearchInput) projectSearchInput.addEventListener('input', e => renderProjects(e.target.value));
 
-        if (themeToggle) {
+        if(duplicateNodeBtn) duplicateNodeBtn.addEventListener('click', duplicateSelectedNode);
+        if(deleteNodeBtn) deleteNodeBtn.addEventListener('click', deleteSelectedNode);
+
+        if(themeToggle) {
             themeToggle.addEventListener('change', () => {
                 document.body.classList.toggle('dark-mode', themeToggle.checked);
                 document.body.classList.toggle('light-mode', !themeToggle.checked);
@@ -885,6 +1026,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!currentProject || !selectedNodeId) return;
                 const node = currentProject.videos.find(v => v.id === selectedNodeId);
                 if (!node) return;
+                pushToUndoStack(); // Save state before changing start node status
 
                 if (nodeIsStartNodeCheckbox.checked) {
                     currentProject.startNodeId = selectedNodeId;
@@ -908,6 +1050,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!selectedNodeId || !currentProject) return;
                 const node = currentProject.videos.find(v => v.id === selectedNodeId);
                 if (!node) return;
+                pushToUndoStack(); // Save state before changing end action
 
                 if (!node.endAction) node.endAction = {};
                 node.endAction.type = nodeEndActionSelect.value;
@@ -927,6 +1070,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!selectedNodeId || !currentProject) return;
                 const node = currentProject.videos.find(v => v.id === selectedNodeId);
                 if (!node || !node.endAction || node.endAction.type !== 'node') return;
+                pushToUndoStack(); // Save state before changing end action target node
                 node.endAction.target = nodeEndTargetNodeSelect.value;
                 saveProjects();
             });
@@ -936,20 +1080,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!selectedNodeId || !currentProject) return;
                 const node = currentProject.videos.find(v => v.id === selectedNodeId);
                 if (!node || !node.endAction || node.endAction.type !== 'url') return;
+                pushToUndoStack(); // Save state before changing end action target URL
                 node.endAction.target = nodeEndTargetUrlInput.value;
                 saveProjects();
             });
         }
     };
 
-
-
-
     const updateButtonFromEditor = (e) => {
         if (!selectedButtonId) return;
         const node = currentProject.videos.find(v => v.id === selectedNodeId);
+        if (!node) return; // Ensure node exists before proceeding
         const button = node.buttons.find(b => b.id === selectedButtonId);
         if (!button) return;
+        pushToUndoStack(); // Save state before updating button from editor
 
         // Initialize objects if they don't exist
         if (!button.style) button.style = {};
@@ -1113,6 +1257,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const selectButton = (buttonId) => {
+        console.log('selectButton called with ID:', buttonId);
         if (!selectedNodeId) return;
         const node = currentProject.videos.find(v => v.id === selectedNodeId);
         buttonsList.innerHTML = '';
@@ -1186,7 +1331,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Update animate out inputs
         const animateOutDelay = document.getElementById('animate-out-delay');
-        
+
         if (button.animateOut) {
             animateOutCheckbox.checked = button.animateOut.enabled || false;
             animateOutDelay.value = button.animateOut.delay || 5;
@@ -1258,10 +1403,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
 const duplicateSelectedButton = () => {
-    if (!selectedButtonId || !selectedNodeId || !currentProject) {
+    if (!selectedNodeId || !selectedButtonId || !currentProject) {
         console.warn('No button or node selected for duplication.');
         return;
     }
+    pushToUndoStack(); // Save state before button duplication
 
     const node = currentProject.videos.find(v => v.id === selectedNodeId);
     if (!node || !node.buttons) {
@@ -1321,6 +1467,7 @@ const duplicateSelectedButton = () => {
         };
         const onMouseUp = () => {
             if (!draggedNode) return;
+            pushToUndoStack(); // Save state before updating node position
             const node = currentProject.videos.find(v => v.id === draggedNode.dataset.id);
             if (node) {
                 node.x = draggedNode.style.left;
@@ -1365,6 +1512,7 @@ const startConnectionDrag=(e)=>{
             if(dropEl && dropEl.classList.contains('node-input')){
                 const dstId=dropEl.dataset.nodeTarget;
                 if(connectionDragSrc && dstId && connectionDragSrc!==dstId){
+                    pushToUndoStack(); // Save state before adding/modifying connection
                     if(!currentProject.connections) currentProject.connections=[];
                     currentProject.connections.push({from:connectionDragSrc,to:dstId});
                     saveProjects();
@@ -1381,42 +1529,68 @@ const startConnectionDrag=(e)=>{
         document.addEventListener('mouseup',onUp);
     };
 
-    const finishConnectionDrag=(e)=>{
-        if(!tempPath) return;
-        const dstId=e.target.dataset.nodeTarget;
-        const srcId=tempPath.dataset.src;
-        if(srcId && dstId && srcId!==dstId){
-            if(!currentProject.connections) currentProject.connections=[];
-            currentProject.connections.push({from:srcId,to:dstId});
+const finishConnectionDrag = (e) => {
+    const dstNodeElement = e.target.closest('.video-node .node-input'); // Target must be an input dot
 
-            // Update source node's endAction to play the connected node
-            const sourceNode = currentProject.videos.find(v => v.id === srcId);
+    // connectionDragSrc is set when drag starts from an output dot.
+    // tempPath is the visual line.
+    // If not dragging from an output, or no valid target, or no project, abort.
+    if (!dstNodeElement || !connectionDragSrc || !currentProject) {
+        if (tempPath) { // Clean up visual line if it exists
+            tempPath.remove();
+            tempPath = null;
+        }
+        // connectionDragSrc is typically cleared by startConnectionDrag's onUp handler.
+        return;
+    }
+
+    const dstId = dstNodeElement.dataset.nodeTarget; // ID of the node this input dot belongs to
+
+    // Proceed if we have a source, a destination, and they are different.
+    if (dstId && connectionDragSrc !== dstId) {
+        const alreadyExists = currentProject.connections.some(
+            conn => conn.from === connectionDragSrc && conn.to === dstId
+        );
+
+        if (alreadyExists) {
+            console.warn(`Connection from ${connectionDragSrc} to ${dstId} already exists.`);
+        } else {
+            pushToUndoStack(); // Save state before adding the new connection
+            
+            if (!currentProject.connections) {
+                currentProject.connections = [];
+            }
+            currentProject.connections.push({ from: connectionDragSrc, to: dstId });
+
+            const sourceNode = currentProject.videos.find(v => v.id === connectionDragSrc);
             if (sourceNode) {
                 sourceNode.endAction = {
                     type: 'node',
                     targetNode: dstId,
-                    targetUrl: ''
+                    targetUrl: '' // Clear targetUrl when linking to another node
                 };
 
-                // If this source node is currently being edited, update the panel
-                if (selectedNodeId === srcId) {
+                if (selectedNodeId === connectionDragSrc) { // Update editor panel if source node is selected
                     nodeEndActionSelect.value = 'node';
-                    refreshTargetNodeDropdown(); // Ensure dropdown is populated before setting value
+                    refreshTargetNodeDropdown(); 
                     nodeEndTargetNodeSelect.value = dstId;
+                    nodeEndTargetUrlInput.value = ''; // Clear URL input in panel
                     updateEndActionVisibility();
                 }
             }
-
-            saveProjects();
-            renderConnections();
+            saveProjects(); // Persist changes
         }
-        if(tempPath){tempPath.remove(); tempPath=null;}
-        // remove listeners to prevent null errors
-        document.removeEventListener('mousemove',dragListeners.move);
-        document.removeEventListener('mouseup',dragListeners.up);
-        e.stopPropagation();
-    };
+        renderConnections(); // Update visuals
+    }
 
+    // Final cleanup: tempPath (visual line) should be removed.
+    // This is also done in startConnectionDrag's onUp, acting as a safeguard here.
+    if (tempPath) {
+        tempPath.remove();
+        tempPath = null;
+    }
+    // connectionDragSrc is cleared by startConnectionDrag's onUp handler, so no need to clear here.
+};
     const renderConnections=()=>{
         connectionsSvg.innerHTML='';
         if(!currentProject||!currentProject.connections) return;
@@ -1469,6 +1643,11 @@ const startConnectionDrag=(e)=>{
         renderProjects();
         setupNodeDragging();
         setupEventListeners();
+        updateUndoButtons(); // Initialize button states
+
+        // Attach event listeners for Undo buttons
+        if (undoMainBtn) undoMainBtn.addEventListener('click', handleUndo);
+        if (undoNodePanelBtn) undoNodePanelBtn.addEventListener('click', handleUndo);
 
         // Logic to potentially load a specific project if ID is in URL (example)
         const urlParams = new URLSearchParams(window.location.search);
@@ -1484,6 +1663,201 @@ const startConnectionDrag=(e)=>{
         } else {
             navigateTo('dashboard'); // Default to dashboard if no project ID in URL
         }
+    };
+
+    const deleteSelectedNode = () => {
+        if (!selectedNodeId || !currentProject) return;
+        
+        const nodeName = currentProject.videos.find(v => v.id === selectedNodeId)?.name || 'the selected node';
+        // Push to stack *before* confirm, but pop if cancelled
+        pushToUndoStack(); 
+        if (!confirm(`Are you sure you want to delete the node "${nodeName}"? This action can be undone.`)) {
+            undoStack.pop(); // Remove the state pushed for this aborted action
+            updateUndoButtons(); // Reflect that the stack might be empty now
+            return;
+        }
+
+        const nodeToDeleteId = selectedNodeId;
+
+        currentProject.videos = currentProject.videos.filter(video => video.id !== nodeToDeleteId);
+        currentProject.connections = currentProject.connections.filter(conn => conn.source !== nodeToDeleteId && conn.target !== nodeToDeleteId);
+
+        if (currentProject.startNodeId === nodeToDeleteId) {
+            currentProject.startNodeId = currentProject.videos.length > 0 ? currentProject.videos[0].id : null;
+            // If setting a new start node, ensure it's marked in its data
+            if (currentProject.startNodeId) {
+                const newStartNode = currentProject.videos.find(v => v.id === currentProject.startNodeId);
+                if (newStartNode) newStartNode.isStartNode = true;
+            }
+        }
+        
+        // Update end actions of other nodes that might have pointed to the deleted node
+        currentProject.videos.forEach(video => {
+            if (video.endAction && video.endAction.type === 'node' && video.endAction.target === nodeToDeleteId) {
+                video.endAction.target = null; // Or set to 'none' or a default
+            }
+        });
+
+        if (nodeEditorPanel && !nodeEditorPanel.classList.contains('hidden') && selectedNodeId === nodeToDeleteId) {
+            closeNodeEditor();
+        } else {
+            selectedNodeId = null; // Deselect
+            if(duplicateNodeBtn) duplicateNodeBtn.disabled = true;
+            if(deleteNodeBtn) deleteNodeBtn.disabled = true;
+        }
+
+        saveProjects();
+        renderNodes();
+        renderConnections();
+        // updateUndoButtons(); // Not needed here as handleUndo does it.
+    };
+
+    const duplicateSelectedNode = () => {
+        if (!selectedNodeId || !currentProject) return;
+        const originalNode = currentProject.videos.find(video => video.id === selectedNodeId);
+        if (!originalNode) {
+            console.warn('Original node not found for duplication.');
+            return;
+        }
+        pushToUndoStack(); // Save state before duplication
+
+        const newNode = deepCopy(originalNode); // Use deepCopy for safety
+        newNode.id = generateId('node-');
+        newNode.name = `${originalNode.name} Copy`;
+        
+        const originalX = parseFloat(originalNode.x) || 0;
+        const originalY = parseFloat(originalNode.y) || 0;
+        newNode.x = `${originalX + 30}px`;
+        newNode.y = `${originalY + 30}px`;
+        
+        if (newNode.buttons && Array.isArray(newNode.buttons)) {
+            newNode.buttons = newNode.buttons.map(button => ({
+                ...deepCopy(button),
+                id: generateId('btn-')
+            }));
+        }
+
+        // If the original node was the start node, the new one shouldn't be.
+        newNode.isStartNode = false; 
+        
+        // Reset end action if it pointed to the original node itself (to avoid self-loop on duplicate)
+        // This logic might need refinement if we want duplicates to point to same external URLs or other nodes.
+        // For now, if it pointed to itself, the copy points to nothing.
+        if (newNode.endAction && newNode.endAction.type === 'node' && newNode.endAction.target === originalNode.id) {
+            newNode.endAction.target = null; 
+        }
+
+        currentProject.videos.push(newNode);
+        saveProjects();
+
+        selectedNodeId = newNode.id; // Select the new node
+        renderNodes(); 
+        openNodeEditor(newNode.id, true); // Open editor for new node, true to prevent undo push from openNodeEditor
+        
+        if(duplicateNodeBtn) duplicateNodeBtn.disabled = false;
+        if(deleteNodeBtn) deleteNodeBtn.disabled = false;
+        // updateUndoButtons(); // Not needed here
+    };
+
+    const deepCopy = (obj) => {
+        if (typeof obj !== 'object' || obj === null) {
+            return obj; // Primitives or null
+        }
+        if (obj instanceof Date) {
+            return new Date(obj.getTime());
+        }
+        if (Array.isArray(obj)) {
+            return obj.map(item => deepCopy(item));
+        }
+        const newObj = {};
+        for (const key in obj) {
+            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                newObj[key] = deepCopy(obj[key]);
+            }
+        }
+        return newObj;
+    };
+
+    // ---- Undo/Redo Logic ----
+    const updateUndoButtons = () => {
+        const canUndo = undoStack.length > 0;
+        if (undoMainBtn) undoMainBtn.disabled = !canUndo;
+        if (undoNodePanelBtn) undoNodePanelBtn.disabled = !canUndo;
+    };
+
+    const pushToUndoStack = () => {
+        if (!currentProject) return;
+        const projectStateCopy = deepCopy(currentProject);
+        if (!projectStateCopy) return; // Failed to copy
+
+        if (undoStack.length >= MAX_UNDO_STEPS) {
+            undoStack.shift(); // Remove the oldest state
+        }
+        undoStack.push(projectStateCopy);
+        updateUndoButtons();
+    };
+
+    const handleUndo = () => {
+        if (undoStack.length === 0) return;
+
+        const previousState = undoStack.pop();
+        if (!previousState) return;
+
+        currentProject = previousState; // Restore project state
+        updateUndoButtons();
+        saveProjects(); // Persist the undone state
+
+        // Refresh UI
+        renderNodes();
+        renderConnections();
+        projectTitleEditor.textContent = currentProject.name;
+
+        if (nodeEditorPanel.classList.contains('hidden')) {
+            selectedNodeId = null; // Ensure no node is considered selected if panel is hidden
+        } else {
+            // If node editor was open, check if the selected node still exists
+            const previouslySelectedNode = currentProject.videos.find(v => v.id === selectedNodeId);
+            if (previouslySelectedNode) {
+                // Re-open or refresh node editor for the selected node
+                // This might be complex if openNodeEditor itself pushes to undo stack
+                // For now, just render its buttons if it's the same node
+                openNodeEditor(selectedNodeId, { isUndoRedo: true, autoplay: false }); // Don't autoplay on undo
+            } else {
+                closeNodeEditor();
+                selectedNodeId = null;
+            }
+        }
+        
+        // If button editor was open, check if selected button is still valid
+        if (!buttonEditorPanel.classList.contains('hidden')) {
+            if (selectedNodeId && selectedButtonId) {
+                const node = currentProject.videos.find(v => v.id === selectedNodeId);
+                const button = node ? node.buttons.find(b => b.id === selectedButtonId) : null;
+                if (!button) {
+                    closeButtonEditor();
+                }
+            } else {
+                closeButtonEditor();
+            }
+        }
+        // Ensure selection states for nodes and buttons are consistent
+        duplicateNodeBtn.disabled = !selectedNodeId;
+        deleteNodeBtn.disabled = !selectedNodeId;
+        if (selectedNodeId) {
+             const nodeStillExists = currentProject.videos.some(v => v.id === selectedNodeId);
+             if (!nodeStillExists) {
+                selectedNodeId = null;
+                duplicateNodeBtn.disabled = true;
+                deleteNodeBtn.disabled = true;
+                closeNodeEditor();
+             }
+        } else {
+            duplicateNodeBtn.disabled = true;
+            deleteNodeBtn.disabled = true;
+        }
+
+        console.log('Project state restored via Undo. New currentProject:', deepCopy(currentProject));
+        console.log('Undo stack size:', undoStack.length);
     };
 
     init();

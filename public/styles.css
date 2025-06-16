@@ -354,6 +354,7 @@ body.dark-mode .primary-btn {
 
 /* Node Editor Panel */
 #node-editor-panel {
+    background-color: #2f2f2f; /* Darker gray background */
     position: fixed;
     top: 0;
     left: 0;
@@ -486,7 +487,7 @@ body.light-mode hr.style-separator {
 #timeline-scrubber {
     position: relative;
     width: 100%;
-    height: 20px;
+    /* height: 20px; */ /* Allow height to be determined by content */
     cursor: pointer;
 }
 
@@ -726,6 +727,11 @@ body.dark-mode .node-thumbnail-placeholder {
     color: #999;
 }
 
+.node-selected {
+    border: 2px solid #007bff !important; /* Blue border for selected node, !important to override existing */
+    box-shadow: 0 0 10px rgba(0, 123, 255, 0.5); /* Optional: add a glow */
+}
+
 #connections-svg {
     position:absolute;
     top:0;
@@ -912,6 +918,8 @@ body.dark-mode #connections-svg path {
 
 .timeline-button-bar {
     position: absolute;
+    pointer-events: auto; /* Allow clicks on the bars themselves */
+    z-index: 5; /* Ensure bars are above other elements in the same stacking context */
     height: 100%; /* Fill the height of timeline-markers */
     background-color: #3498db; /* Blue */
     border-radius: 2px;
