@@ -323,25 +323,206 @@ body.dark-mode .project-card {
 }
 
 /* Buttons */
-button {
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
+button,
+.button { /* Adding .button class for non-button elements styled as buttons */
+    display: inline-block;
+    padding: 0.6em 1.2em;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 0.9rem;
     font-weight: 500;
-    transition: background-color 0.2s;
+    line-height: 1.5;
+    text-align: center;
+    text-decoration: none;
+    vertical-align: middle;
+    cursor: pointer;
+    user-select: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out, transform 0.1s ease-in-out;
 }
 
+button:focus,
+.button:focus {
+    outline: 0;
+    /* Example focus shadow, you might want to use theme variables */
+    box-shadow: 0 0 0 0.2rem rgba(var(--primary-rgb, 0, 123, 255), 0.25);
+}
+
+button:hover:not(:disabled),
+.button:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+button:active:not(:disabled),
+.button:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+button:disabled,
+.button:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Light Mode Button Hover Shadow */
+body.light-mode button:hover:not(:disabled),
+body.light-mode .button:hover:not(:disabled) {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+}
+
+/* Dark Mode Button Hover Shadow */
+body.dark-mode button:hover:not(:disabled),
+body.dark-mode .button:hover:not(:disabled) {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+}
+
+/* Primary Buttons (e.g., New Project) */
 .primary-btn {
-    color: white;
+    color: #fff; /* Default text color for primary buttons */
 }
-
 body.light-mode .primary-btn {
     background-color: var(--primary-light);
+    border-color: var(--primary-light);
+}
+body.light-mode .primary-btn:hover:not(:disabled) {
+    background-color: var(--primary-variant-light);
+    border-color: var(--primary-variant-light);
 }
 body.dark-mode .primary-btn {
     background-color: var(--primary-dark);
-    color: #000;
+    border-color: var(--primary-dark);
+    color: #121212; /* High contrast text for dark mode primary */
+}
+body.dark-mode .primary-btn:hover:not(:disabled) {
+    background-color: #a970f5; /* Slightly adjusted hover for dark primary */
+    border-color: #a970f5;
+}
+
+/* Secondary/Default Buttons */
+
+
+body.light-mode .secondary-btn,
+body.light-mode .header-action-btn:not(.danger),
+body.light-mode .card-actions .edit-project-btn,
+body.light-mode #back-to-dashboard-btn {
+    color: #212529;
+    background-color: #f8f9fa;
+    border-color: #ced4da;
+}
+body.light-mode .secondary-btn:hover:not(:disabled),
+body.light-mode .header-action-btn:not(.danger):hover:not(:disabled),
+body.light-mode .card-actions .edit-project-btn:hover:not(:disabled),
+body.light-mode #back-to-dashboard-btn:hover:not(:disabled) {
+    background-color: #e9ecef;
+    border-color: #dee2e6;
+}
+
+body.dark-mode .secondary-btn,
+body.dark-mode .header-action-btn:not(.danger),
+body.dark-mode .card-actions .edit-project-btn,
+body.dark-mode #back-to-dashboard-btn {
+    color: #e9ecef;
+    background-color: #343a40;
+    border-color: #495057;
+}
+body.dark-mode .secondary-btn:hover:not(:disabled),
+body.dark-mode .header-action-btn:not(.danger):hover:not(:disabled),
+body.dark-mode .card-actions .edit-project-btn:hover:not(:disabled),
+body.dark-mode #back-to-dashboard-btn:hover:not(:disabled) {
+    background-color: #495057;
+    border-color: #5a6268;
+}
+
+/* Danger Buttons (Delete buttons) */
+.danger,
+.danger-btn /* Adding .danger-btn as an alias if needed */ {
+    color: #fff; /* Default text for danger buttons */
+}
+body.light-mode .danger,
+body.light-mode .danger-btn {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+body.light-mode .danger:hover:not(:disabled),
+body.light-mode .danger-btn:hover:not(:disabled) {
+    background-color: #c82333;
+    border-color: #bd2130;
+}
+body.dark-mode .danger,
+body.dark-mode .danger-btn {
+    background-color: #e63946; /* Brighter red for dark mode */
+    border-color: #e63946;
+}
+body.dark-mode .danger:hover:not(:disabled),
+body.dark-mode .danger-btn:hover:not(:disabled) {
+    background-color: #d02c3a;
+    border-color: #c12835;
+}
+
+/* Ensure specificity for header action buttons that are also danger buttons */
+
+
+/* Preview Overlay Close Button */
+#close-preview-btn {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 30px;
+  font-weight: bold;
+  color: #fff;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  z-index: 1002;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+#close-preview-btn:hover {
+  color: #ddd;
+}
+
+/* Form Range Slider Style */
+.form-range {
+    width: 100%;
+    height: 1.5rem;
+    padding: 0;
+    background-color: transparent;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+.form-range:focus {
+    outline: 0;
+}
+
+.form-range::-webkit-slider-thumb {
+    width: 1rem;
+    height: 1rem;
+    margin-top: -0.35rem; /* Centers thumb on track */
+    background-color: var(--primary-light);
+    border: 0;
+    border-radius: 1rem;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: background-color .15s ease-in-out, border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+}
+body.dark-mode .form-range::-webkit-slider-thumb {
+    background-color: var(--primary-dark);
+}
+
+.form-range::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 0.25rem;
+    cursor: pointer;
+    background-color: #dee2e6;
+    border-radius: 1rem;
+}
+body.dark-mode .form-range::-webkit-slider-runnable-track {
+    background-color: #495057;
 }
 
 #node-video-preview-container {

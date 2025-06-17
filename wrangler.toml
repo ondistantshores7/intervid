@@ -1,0 +1,23 @@
+name = "interactive-video-editor"
+pages_build_output_dir = "public"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "interactive-video-db"
+database_id = "faf4e62c-4550-4af2-9a02-1f3d836d2577"
+
+
+
+[env.production]
+ADMIN_API_KEY = ""  # Generate with: openssl rand -hex 32
+ADMIN_PASSWORD = ""  # Set a strong password here
+
+[env.preview]
+ADMIN_API_KEY = ""
+ADMIN_PASSWORD = ""  # Can be different for preview/staging
+
+# Local development overrides
+[vars]
+ADMIN_API_KEY = "dev-key-123"  # For local testing only
+ADMIN_PASSWORD = "dev-password"

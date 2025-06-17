@@ -185,6 +185,7 @@
                                         <label for="button-bgcolor-input">Background</label>
                                         <input type="color" id="button-bgcolor-input" class="form-control" value="#007bff">
                                     </div>
+
                                 <hr class="style-separator">
                                 <div class="form-group full-width">
                                     <label for="button-shadow-enable" class="checkbox-label">Enable Drop Shadow</label>
@@ -219,6 +220,11 @@
                                     <div class="form-group">
                                         <label for="button-font-family-input">Font Family</label>
                                         <input type="text" id="button-font-family-input" class="form-control">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="button-corner-radius-slider">Corner Rounding <span id="button-corner-radius-value">5px</span></label>
+                                        <input type="range" id="button-corner-radius-slider" class="form-range" min="0" max="50" step="1">
                                     </div>
                                     <div class="form-group">
                                         <label for="button-font-size-input">Font Size (px)</label>
@@ -301,5 +307,6 @@
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="js/player.js" defer></script>
     <script src="js/main_v2.js" defer></script>
+    <script src="js/export.js" defer></script>
 </body>
 </html>

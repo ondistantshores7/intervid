@@ -1,3 +1,12 @@
+// For local development, this key should match the one in wrangler.toml
+
+// Utility to generate unique IDs with an optional prefix
+function generateId(prefix = '') {
+    return `${prefix}${Date.now()}${Math.random().toString(36).substr(2, 5)}`;
+}
+
+window.ADMIN_API_KEY = "dev-key-123";
+
 document.addEventListener('DOMContentLoaded', () => {
     let isInitialized = false;
     if (isInitialized) {
@@ -141,8 +150,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const buttonShadowBlurValue = getElement('button-shadow-blur-value');
     const buttonShadowSpreadValue = getElement('button-shadow-spread-value');
 
+    const buttonCornerRadiusSlider = getElement('button-corner-radius-slider');
+    const buttonCornerRadiusValue = getElement('button-corner-radius-value');
+
     let projects = [];
-    let currentProject = null;
+    var currentProject = null; // use var so it's attached to window for export.js
     let currentNode = null;
     let selectedNodeId = null;
     let selectedButtonId = null;
@@ -188,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
             card.className='project-card';
             card.innerHTML=`<h3>${project.name}</h3><p>${project.videos.length} videos</p>`;
             const editBtn=document.createElement('button');editBtn.textContent='Edit';editBtn.onclick=()=>navigateTo('editor',project.id);
-            const dupBtn=document.createElement('button');dupBtn.textContent='Duplicate';dupBtn.onclick=()=>{const copy=JSON.parse(JSON.stringify(project));copy.id=`proj-${Date.now()}`;copy.name=project.name+' copy';projects.push(copy);saveProjects();renderProjects(projectSearchInput.value);} ;
+            const dupBtn=document.createElement('button');dupBtn.textContent='Duplicate';dupBtn.onclick=()=>{const copy=JSON.parse(JSON.stringify(project));copy.id=generateId('project-');copy.name=project.name+' copy';projects.push(copy);saveProjects();renderProjects(projectSearchInput.value);} ;
             const delBtn=document.createElement('button');delBtn.textContent='Delete';delBtn.className='danger';delBtn.onclick=()=>{if(confirm('Delete project?')){projects=projects.filter(p=>p.id!==project.id);saveProjects();renderProjects(projectSearchInput.value);} };
             card.append(editBtn,dupBtn,delBtn);
             container.appendChild(card);
@@ -392,9 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Recalculate shouldShow based on buttonStartTime and buttonDuration
             const buttonStartTimeForOverlay = button.time || 0; // Use a separate variable to avoid conflict if original button.time was undefined
             let buttonDurationForOverlay = getButtonEffectiveDuration(button, nodeVideoPreview.duration);
-            if (buttonDurationForOverlay <= 0) {
-                buttonDurationForOverlay = 0.1;
-            }
+            if (buttonDurationForOverlay <= 0) buttonDurationForOverlay = 0.1;
             const shouldShow = (nodeVideoPreview.currentTime >= buttonStartTimeForOverlay && nodeVideoPreview.currentTime < buttonStartTimeForOverlay + buttonDurationForOverlay) || button.id===selectedButtonId;
 
             Object.assign(buttonPreview.style, button.style, { position: 'absolute', left: button.position.x, top: button.position.y, display: shouldShow?'block':'none' });
@@ -524,6 +534,7 @@ document.addEventListener('DOMContentLoaded', () => {
             buttonEl.style.height = `${newHeight}px`;
             buttonEl.style.left = `${newLeft}px`;
             buttonEl.style.top = `${newTop}px`;
+            button.style.borderRadius = `${buttonBorderRadiusInput.value}px`;
         };
 
         const onEnd = () => {
@@ -631,11 +642,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (view === 'editor') {
             if(editorView) editorView.classList.add('active');
             currentProject = projects.find(p => p.id === projectId);
+            window.currentProject = currentProject;
             if (!currentProject) {
                 console.error('Project not found:', projectId, 'Navigating to dashboard.');
                 return navigateTo('dashboard');
             }
-            if(projectTitleEditor) projectTitleEditor.textContent = currentProject.name;
+            if(projectTitleEditor && currentProject) projectTitleEditor.textContent = currentProject.name;
             renderNodes();
             renderConnections();
         } else {
@@ -762,7 +774,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const openNodeEditor = (nodeId, options = {}) => {
-        const { isUndoRedo = false, autoplay = true } = options;
+        const { isUndoRedo = false, autoplay = false } = options;
         selectedNodeId = nodeId;
         const node = currentProject.videos.find(v => v.id === nodeId);
         if (!node) return;
@@ -783,13 +795,22 @@ document.addEventListener('DOMContentLoaded', () => {
             refreshTargetNodeDropdown(); 
             if (node.endAction) {
                 nodeEndActionSelect.value = node.endAction.type || 'none';
-                if (node.endAction.type === 'node' && nodeEndTargetNodeSelect) {
+                refreshTargetNodeDropdown();
+                if (node.endAction.type === 'node') {
                     nodeEndTargetNodeSelect.value = node.endAction.target || '';
-                } else if (node.endAction.type === 'url' && nodeEndTargetUrlInput) {
+                } else {
+                    nodeEndTargetNodeSelect.value = '';
+                }
+
+                if (node.endAction.type === 'url') {
                     nodeEndTargetUrlInput.value = node.endAction.target || '';
+                } else {
+                    nodeEndTargetUrlInput.value = '';
                 }
             } else {
-                nodeEndActionSelect.value = 'none'; 
+                nodeEndActionSelect.value = 'none';
+                nodeEndTargetNodeSelect.value = '';
+                nodeEndTargetUrlInput.value = '';
             }
             updateEndActionVisibility();
         }
@@ -812,7 +833,7 @@ document.addEventListener('DOMContentLoaded', () => {
         newProjectBtn.addEventListener('click', () => {
             const name = prompt('Enter project name:');
             if (!name) return;
-            const project = { id: `proj-${Date.now()}`, name, videos: [], connections: [] };
+            const project = { id: generateId('project-'), name, videos: [], connections: [] };
             projects.push(project);
             saveProjects();
             renderProjects();
@@ -907,7 +928,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('button-font-family-input'),
             document.getElementById('button-font-size-input'),
             document.getElementById('button-padding-input'),
-            document.getElementById('button-border-radius-input'),
+
             document.getElementById('button-border-input'),
             animateOutCheckbox,
             document.getElementById('animate-out-delay'),
@@ -961,6 +982,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         });
+
+        if (buttonCornerRadiusSlider && buttonCornerRadiusValue) {
+            // Live preview while dragging the slider
+            buttonCornerRadiusSlider.addEventListener('input', () => {
+                if (!selectedButtonId) return;
+                const radius = buttonCornerRadiusSlider.value;
+                buttonCornerRadiusValue.textContent = `${radius}px`;
+                const buttonElement = document.querySelector(`.video-overlay-button[data-button-id="${selectedButtonId}"]`);
+                if (buttonElement) {
+                    buttonElement.style.borderRadius = `${radius}px`;
+                }
+            });
+
+            // Save the final value to the project data when the slider is released
+            buttonCornerRadiusSlider.addEventListener('change', (e) => {
+                if (!selectedButtonId) return;
+                updateButtonFromEditor(e); // This handles saving the data and pushing to the undo stack
+            });
+        }
 
         if (buttonLinkType) {
             buttonLinkType.addEventListener('change', function () {
@@ -1046,33 +1086,36 @@ document.addEventListener('DOMContentLoaded', () => {
         const nodeEndTargetUrlInput = getElement('node-end-target-url');
 
         if (nodeEndActionSelect) {
-            nodeEndActionSelect.addEventListener('change', () => {
-                if (!selectedNodeId || !currentProject) return;
+            nodeEndActionSelect.addEventListener('change', function() {
+                if (!selectedNodeId) return;
                 const node = currentProject.videos.find(v => v.id === selectedNodeId);
                 if (!node) return;
-                pushToUndoStack(); // Save state before changing end action
+                pushToUndoStack();
 
-                if (!node.endAction) node.endAction = {};
-                node.endAction.type = nodeEndActionSelect.value;
-                if (nodeEndActionSelect.value === 'node' && nodeEndTargetNodeSelect) {
-                    node.endAction.target = nodeEndTargetNodeSelect.value;
-                } else if (nodeEndActionSelect.value === 'url' && nodeEndTargetUrlInput) {
-                    node.endAction.target = nodeEndTargetUrlInput.value;
+                const newAction = { type: this.value };
+                if (this.value === 'node' && nodeEndTargetNodeSelect.options.length > 0) {
+                    newAction.target = nodeEndTargetNodeSelect.value; // Default to first option
+                } else if (this.value === 'url') {
+                    newAction.target = ''; // Default to empty URL
                 } else {
-                    node.endAction.target = ''; // Clear target if type is 'none' or other
+                    newAction.target = null;
                 }
+                node.endAction = newAction;
+
                 updateEndActionVisibility();
                 saveProjects();
+                renderConnections();
             });
         }
         if (nodeEndTargetNodeSelect) {
-            nodeEndTargetNodeSelect.addEventListener('change', () => {
-                if (!selectedNodeId || !currentProject) return;
+            nodeEndTargetNodeSelect.addEventListener('change', function() {
+                if (!selectedNodeId) return;
                 const node = currentProject.videos.find(v => v.id === selectedNodeId);
                 if (!node || !node.endAction || node.endAction.type !== 'node') return;
-                pushToUndoStack(); // Save state before changing end action target node
-                node.endAction.target = nodeEndTargetNodeSelect.value;
+                pushToUndoStack();
+                node.endAction.target = this.value;
                 saveProjects();
+                renderConnections();
             });
         }
         if (nodeEndTargetUrlInput) {
@@ -1145,12 +1188,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const animateOutCheckbox = document.getElementById('animate-out-checkbox');
         const animateOutDelay = document.getElementById('animate-out-delay');
 
-        if (animateOutCheckbox) {
+        if (button.animateOut) {
             button.animateOut = button.animateOut || {};
             button.animateOut.enabled = animateOutCheckbox.checked;
 
             if (animateOutDelay) {
                 button.animateOut.delay = parseFloat(animateOutDelay.value) || 5;
+            }
+        } else {
+            animateOutCheckbox.checked = false;
+            animateOutDelay.value = 5;
+            if (animateOutOptions) {
+                animateOutOptions.style.display = 'none';
             }
         }
 
@@ -1212,9 +1261,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const padding = parseInt(document.getElementById('button-padding-input').value) || 10;
             style.padding = `${Math.max(0, Math.min(padding, 50))}px`;
         }
-        if (!e || e.target === document.getElementById('button-border-radius-input')) {
-            const borderRadius = parseInt(document.getElementById('button-border-radius-input').value) || 5;
-            style.borderRadius = `${Math.max(0, Math.min(borderRadius, 50))}%`;
+        if (!e || e.target === buttonCornerRadiusSlider) {
+            const borderRadius = parseInt(buttonCornerRadiusSlider.value) || 0;
+            style.borderRadius = `${Math.max(0, Math.min(borderRadius, 50))}px`;
         }
         if (!e || e.target === document.getElementById('button-border-input')) {
             style.border = document.getElementById('button-border-input').value || 'none';
@@ -1228,30 +1277,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         saveProjects();
 
-        // Only update the specific button's style instead of re-rendering everything
+        // Apply style changes directly for live preview, then save.
         const buttonElement = document.querySelector(`.video-overlay-button[data-button-id="${selectedButtonId}"]`);
         if (buttonElement) {
-            // Apply all current styles to the button element
-            Object.assign(buttonElement.style, button.style);
+            Object.assign(buttonElement.style, style);
+        }
 
-            // Update animation classes if needed
-            if (button.animation && button.animation.type !== 'none') {
-                const animClass = button.animation.type === 'slide' ?
-                    `anim-slide-${button.animation.direction}` :
-                    `anim-${button.animation.type}`;
-
-                // Remove all animation classes first
-                buttonElement.className = 'video-overlay-button';
-
-
-                if (button.animation.type !== 'none') {
-                    buttonElement.classList.add(animClass);
-                    buttonElement.style.animationDuration = `${button.animation.duration}s`;
-                }
-            }
-
-        } else {
-            // Fallback to full render if button element not found
+        // If a property that requires a full redraw was changed, render all buttons.
+        // Otherwise, the direct style application above is sufficient.
+        if (needsFullRender) {
             renderButtons();
         }
     };
@@ -1320,8 +1354,9 @@ document.addEventListener('DOMContentLoaded', () => {
             parseInt(button.style.fontSize) : 16;
         document.getElementById('button-padding-input').value = button.style.padding ? 
             parseInt(button.style.padding) : 10;
-        document.getElementById('button-border-radius-input').value = button.style.borderRadius ? 
-            parseInt(button.style.borderRadius) : 5;
+        const currentBorderRadius = button.style.borderRadius ? parseInt(button.style.borderRadius) : 5;
+        if (buttonCornerRadiusSlider) buttonCornerRadiusSlider.value = currentBorderRadius;
+        if (buttonCornerRadiusValue) buttonCornerRadiusValue.textContent = `${currentBorderRadius}px`;
         document.getElementById('button-border-input').value = button.style.border || 'none';
         
         // Update animation inputs
@@ -1626,6 +1661,68 @@ const finishConnectionDrag = (e) => {
             });
             connectionsSvg.appendChild(path);
         });
+
+        // Draw 'On Video End' node-to-node connections
+        if (currentProject.videos) {
+            currentProject.videos.forEach(videoNode => {
+                if (videoNode.endAction && videoNode.endAction.type === 'node' && videoNode.endAction.target) {
+                    const fromNodeId = videoNode.id;
+                    const toNodeId = videoNode.endAction.target;
+
+                    // Ensure the target node still exists
+                    const targetNodeExists = currentProject.videos.some(v => v.id === toNodeId);
+                    if (!targetNodeExists) {
+                        // console.warn(`Target node ${toNodeId} for end action of ${fromNodeId} not found. Skipping connection.`);
+                        return; 
+                    }
+
+                    const fromEl = nodesContainer.querySelector(`.node-output[data-node-source="${fromNodeId}"]`);
+                    if(!fromEl){console.log('No fromEl for end-action',fromNodeId);} 
+                    const toEl = nodesContainer.querySelector(`.node-input[data-node-target="${toNodeId}"]`);
+                    if(!toEl){console.log('No toEl for end-action',toNodeId);} 
+
+                    if (!fromEl || !toEl) {
+                        // console.warn(`Could not find connection points for ${fromNodeId} -> ${toNodeId}`);
+                        return;
+                    }
+
+                    const svgRect = connectionsSvg.getBoundingClientRect();
+                    const fromRect = fromEl.getBoundingClientRect();
+                    const toRect = toEl.getBoundingClientRect();
+
+                    const x1 = fromRect.left + fromRect.width / 2 - svgRect.left;
+                    const y1 = fromRect.top + fromRect.height / 2 - svgRect.top;
+                    const x2 = toRect.left + toRect.width / 2 - svgRect.left;
+                    const y2 = toRect.top + toRect.height / 2 - svgRect.top;
+                    const midX = (x1 + x2) / 2;
+
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.classList.add('connection', 'end-action-connection');
+                    path.setAttribute('pointer-events','stroke');
+                    path.dataset.from = fromNodeId;
+                    path.dataset.to = toNodeId;
+                    path.setAttribute('d', `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`);
+                    path.setAttribute('fill', 'none');
+                    path.setAttribute('stroke', '#03a9f4');
+                    path.setAttribute('stroke-width', '6'); 
+                    // Solid line
+                    path.setAttribute('pointer-events', 'none'); // These lines are not interactive for now
+                    path.addEventListener('click', (e)=>{
+                        const src = e.target.dataset.from;
+                        if(confirm('Delete end-action link from this node?')){
+                            const srcNode = currentProject.videos.find(v=>v.id===src);
+                            if(srcNode && srcNode.endAction){
+                                pushToUndoStack();
+                                srcNode.endAction = { type: 'none', target: null };
+                                saveProjects();
+                                renderConnections();
+                            }
+                        }
+                    });
+                    connectionsSvg.appendChild(path);
+                }
+            });
+        }
     };
 
     const openPreview = (startNodeId) => {

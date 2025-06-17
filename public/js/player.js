@@ -18,6 +18,11 @@ class IVSPlayer {
         this.project = projectData;
         this.videoEl = this.overlay.querySelector('#preview-video');
         this.buttonsContainer = this.overlay.querySelector('.preview-buttons-overlay');
+        // --- Highlighter elements ---
+        this.canvas = null;
+        this.ctx = null;
+        this.isDrawing = false;
+        this.isHighlightMode = false;
         this.hls = null;
         this.timeUpdateHandler = null;
         this.loopCount = 0; // Track number of loops for the current node
@@ -33,8 +38,187 @@ class IVSPlayer {
         this.buttonsContainer.addEventListener('click', this.buttonClickHandler);
         this.videoEndedHandler = this.handleVideoEnd.bind(this);
 
+        this.setupHighlighter();
         this.loadVideo(startNodeId);
     }
+
+    /* ---------------- Highlighter Setup ---------------- */
+    setupHighlighter() {
+        const container = this.overlay.querySelector('#video-container');
+        if (!container || !this.videoEl) return;
+
+        // Create canvas overlay only once
+        if (!this.canvas) {
+            this.canvas = document.createElement('canvas');
+            this.canvas.className = 'highlighter-canvas';
+            Object.assign(this.canvas.style, {
+                zIndex: 5,
+                position: 'absolute',
+                top: '0',
+                left: '0',
+                pointerEvents: 'none'
+            });
+            container.appendChild(this.canvas);
+            this.ctx = this.canvas.getContext('2d');
+            this.ctx.lineWidth = 6;
+            this.currentColor = '#2196f3'; // bright blue
+            this.ctx.strokeStyle = this.currentColor;
+            
+            this.ctx.lineCap = 'round';
+            this.ctx.lineJoin = 'round';
+
+            // Resize canvas to match video
+            const resize = () => {
+                const width = container.clientWidth || this.videoEl.clientWidth;
+                const height = container.clientHeight || this.videoEl.clientHeight;
+                const dpr = window.devicePixelRatio || 1;
+                this.canvas.width = width * dpr;
+                this.canvas.height = height * dpr;
+                this.canvas.style.width = width + 'px';
+                this.canvas.style.height = height + 'px';
+                this.ctx.setTransform(1,0,0,1,0,0);
+                this.ctx.scale(dpr, dpr);
+            };
+            resize();
+            window.addEventListener('resize', resize);
+            this.videoEl.addEventListener('loadedmetadata', resize);
+
+            // Drawing events
+            this.canvas.addEventListener('mousedown', (e) => {
+                // ensure stroke style and width each new stroke
+                this.ctx.strokeStyle = this.currentColor;
+                this.ctx.lineWidth = 6;
+                if (!this.isHighlightMode) return;
+                this.isDrawing = true;
+                // allow drawing but keep controls accessible after stroke ends
+                this.canvas.style.pointerEvents = 'auto';
+                const rect = this.canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                this.lastX = x;
+                this.lastY = y;
+                this.ctx.beginPath();
+                this.ctx.moveTo(x, y);
+            });
+            this.canvas.addEventListener('mousemove', (e) => {
+                if (!this.isDrawing) return;
+                const rect = this.canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const midX = (this.lastX + x) / 2;
+                const midY = (this.lastY + y) / 2;
+                this.ctx.quadraticCurveTo(this.lastX, this.lastY, midX, midY);
+                this.ctx.stroke();
+                this.lastX = x;
+                this.lastY = y;
+            });
+            window.addEventListener('mouseup', () => {
+                if (this.isDrawing) {
+                    this.isDrawing = false;
+                    this.canvas.style.pointerEvents = 'none';
+                }
+            });
+        }
+
+        // Create toggle button only once
+        if (!this.highlighterBtn) {
+            this.highlighterBtn = document.createElement('button');
+            this.highlighterBtn.className = 'highlighter-btn';
+            this.highlighterBtn.title = 'Highlighter Tool';
+            this.highlighterBtn.textContent = '🖍️';
+            Object.assign(this.highlighterBtn.style, {
+                position: 'absolute',
+                bottom: '60px',
+                right: '5px',
+                display: 'none',
+                fontSize: '20px',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer'
+            });
+            container.appendChild(this.highlighterBtn);
+
+            // Color picker
+            this.colorPicker = document.createElement('input');
+            this.colorPicker.type = 'color';
+            this.colorPicker.value = this.currentColor;
+            Object.assign(this.colorPicker.style, {
+                transform: 'translateY(-4px)',
+                position: 'absolute',
+                bottom: '100px',
+                right: '5px',
+                display: 'none',
+                zIndex: 6
+            });
+            container.appendChild(this.colorPicker);
+
+            // Clear button (appears in highlight mode)
+            this.clearHighlightsBtn = document.createElement('button');
+            this.clearHighlightsBtn.textContent = '🗑️';
+            this.clearHighlightsBtn.title = 'Clear highlights';
+            Object.assign(this.clearHighlightsBtn.style, {
+                position: 'absolute',
+                bottom: '140px',
+                right: '5px',
+                display: 'none',
+                fontSize: '20px',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                zIndex: 6
+            });
+            this.clearHighlightsBtn.addEventListener('click', ()=>{
+                this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+            });
+            container.appendChild(this.clearHighlightsBtn);
+
+            this.colorPicker.addEventListener('input', (e)=>{
+                this.currentColor = e.target.value;
+                this.ctx.strokeStyle = this.currentColor;
+            });
+
+            const toggleHighlight = () => {
+                this.isHighlightMode = !this.isHighlightMode;
+                if(this.isHighlightMode){
+                    this.colorPicker.style.display = 'block';
+                    this.clearHighlightsBtn.style.display = 'block';
+                    this.videoEl.pause();
+                    // no longer blocking video clicks
+                }else{
+                    this.colorPicker.style.display = 'none';
+                    this.clearHighlightsBtn.style.display = 'none';
+                    
+                }
+                this.highlighterBtn.classList.toggle('active', this.isHighlightMode);
+                this.canvas.style.pointerEvents = this.isHighlightMode ? 'auto' : 'none';
+                if(!this.isHighlightMode && this.videoEl.paused){
+                    this.videoEl.play().catch(()=>{});
+                }
+            };
+            this.highlighterBtn.addEventListener('click', toggleHighlight);
+        }
+
+        // Show/hide button based on play state
+        this.videoEl.addEventListener('pause', () => {
+            this.highlighterBtn.style.display = 'block';
+        });
+        this.videoEl.addEventListener('play', () => {
+            if(this.colorPicker) this.colorPicker.style.display = 'none';
+            if(this.clearHighlightsBtn) this.clearHighlightsBtn.style.display = 'none';
+            this.highlighterBtn.style.display = 'none';
+            this.isHighlightMode = false;
+            this.canvas.style.pointerEvents = 'none';
+            this.highlighterBtn.classList.remove('active');
+        });
+    }
+
+    /* Removed click block so controls work */
+    /*
+        e.stopImmediatePropagation();
+        e.preventDefault();
+*/
+
+    /* --------------------------------------------------- */
 
     loadVideo(nodeId) {
         // Clear any existing timeouts
