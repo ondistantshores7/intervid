@@ -1,3 +1,61 @@
+console.log('Interactive Video Player script loaded!');
+
+// Auto-initialize player when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM ready, looking for player containers...');
+    
+    // Find all player containers
+    const containers = document.querySelectorAll('[data-project]');
+    console.log('Found ' + containers.length + ' player containers');
+    
+    containers.forEach(container => {
+        const projectId = container.getAttribute('data-project');
+        console.log('Initializing player for project: ' + projectId);
+        
+        // Initialize each player
+        initPlayer(container, projectId);
+    });
+});
+
+// Initialize player with container and project ID
+async function initPlayer(container, projectId) {
+    console.log('Fetching project data for: ' + projectId);
+    try {
+        // Fetch project data
+        const response = await fetch(`https://learn.threeminutetheory.com/api/project/${projectId}`);
+        if (!response.ok) {
+            throw new Error(`Failed to load project data: ${response.status}`);
+        }
+        const projectData = await response.json();
+        console.log('Project data loaded:', projectData);
+        
+        // Create player HTML
+        const playerHTML = `
+            <div id="video-container" style="position:relative; width:100%; height:100%;">
+                <video id="preview-video" style="width:100%; height:100%; object-fit:contain;"></video>
+                <div class="preview-buttons-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%;"></div>
+            </div>
+        `;
+        
+        // Find the embed container
+        const embedContainer = container.querySelector('.iv-player_embed');
+        if (embedContainer) {
+            console.log('Found embed container, inserting player HTML');
+            embedContainer.innerHTML = playerHTML;
+            
+            // Initialize player
+            const startNodeId = projectData.startNodeId || (projectData.videos && projectData.videos.length > 0 ? projectData.videos[0].id : null);
+            console.log('Using start node:', startNodeId);
+            new IVSPlayer(embedContainer, projectData, startNodeId);
+        } else {
+            console.error('Could not find embed container within:', container);
+        }
+    } catch (error) {
+        console.error('Error initializing player:', error);
+        container.innerHTML = `<div style="padding:20px;color:red;">Error loading interactive video: ${error.message}</div>`;
+    }
+}
+
 const hexToRgba = (hex, opacity) => {
     let r = 0, g = 0, b = 0;
     if (hex.length == 4) { // #RGB format
