@@ -1,10 +1,4 @@
 export const onRequestPost = async ({ request, env }) => {
-  // Simple Bearer token auth
-  const auth = request.headers.get("Authorization") || "";
-  const token = auth.replace(/^Bearer\s+/, "");
-  if (token !== env.ADMIN_API_KEY) {
-    return new Response("Unauthorized", { status: 401 });
-  }
 
   let body;
   try {
