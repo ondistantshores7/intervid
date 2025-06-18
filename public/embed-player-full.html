@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Video Player</title>
+    <link rel="stylesheet" href="css/preview-overlay.css">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+        }
+        #preview-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #video-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .preview-buttons-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .interactive-button {
+            position: absolute;
+            pointer-events: all;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="preview-overlay">
+        <div id="video-container">
+            <video id="preview-video" playsinline controls></video>
+            <div class="preview-buttons-overlay"></div>
+        </div>
+    </div>
+
+    <!-- Using the EXACT same player script as the preview function -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="js/player.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Extract project ID from URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const projectId = urlParams.get('project');
+            
+            if (!projectId) {
+                console.error('No project ID specified');
+                document.body.innerHTML = '<div style="color:white;text-align:center;padding:20px;">Error: No project ID specified</div>';
+                return;
+            }
+            
+            console.log('Loading project:', projectId);
+            
+            try {
+                // Fetch project data from the public embed API
+                const response = await fetch(`/api/embed/${projectId}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to load project: ${response.status}`);
+                }
+                
+                const projectData = await response.json();
+                console.log('Project data loaded:', projectData);
+                
+                // Find the container and create player
+                const overlayElement = document.getElementById('preview-overlay');
+                const startNodeId = projectData.startNodeId || 
+                    (projectData.videos && projectData.videos.length > 0 ? projectData.videos[0].id : null);
+                
+                if (!startNodeId) {
+                    throw new Error('No start node found in the project');
+                }
+                
+                console.log('Using start node:', startNodeId);
+                
+                // Initialize player using the exact same IVSPlayer class as in preview
+                new IVSPlayer(overlayElement, projectData, startNodeId);
+                
+            } catch (error) {
+                console.error('Error loading project:', error);
+                document.body.innerHTML = `<div style="color:white;text-align:center;padding:20px;">
+                    Error loading project: ${error.message}
+                </div>`;
+            }
+        });
+    </script>
+</body>
+</html>

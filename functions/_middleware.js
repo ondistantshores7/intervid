@@ -8,6 +8,10 @@ export const onRequest = async ({ request, env, next }) => {
     '/login',
     '/api/embed',  // Make the embed API publicly accessible
     '/embed-player.html',  // Public embed player HTML page
+    '/embed-player-v2.html', // Enhanced embed player with HLS
+    '/embed-player-full.html', // New full-featured embed player
+    '/js/player.js',  // Player script
+    '/css/preview-overlay.css',  // Player styles
   ];
 
   // Check if the current path is in our public routes list
