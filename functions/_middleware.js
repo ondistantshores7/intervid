@@ -14,8 +14,9 @@ export const onRequest = async ({ request, env, next }) => {
     '/css/preview-overlay.css',  // Player styles
   ];
 
-  // Check if the current path is in our public routes list
-  const isPublicRoute = publicRoutes.some(route => url.pathname === route || url.pathname.startsWith(route + '/'));
+  // Check if the current path is in our public routes list or is a static resource
+  const isPublicRoute = publicRoutes.some(route => url.pathname === route || url.pathname.startsWith(route + '/')) ||
+    url.pathname.startsWith('/js/') || url.pathname.startsWith('/css/') || url.pathname.endsWith('.js') || url.pathname.endsWith('.css');
   if (isPublicRoute) {
     return next();
   }

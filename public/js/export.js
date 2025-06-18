@@ -27,15 +27,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (!response.ok) throw new Error('Failed to save project');
       
-      // Show embed code
+      // Show embed code for iframe embedding with full-featured player
       const embedCode = `
-<script type="text/javascript" src="https://learn.threeminutetheory.com/js/player.js" async></script>
-<div class="iv-player_responsive_padding" style="padding:56.25% 0 0 0;position:relative;" data-project="${projectData.id}">
-    <div class="iv-player_responsive_wrapper" style="height:100%;left:0;position:absolute;top:0;width:100%;">
-        <div class="iv-player_embed iv-player_async_loader" style="height:100%;position:relative;width:100%">
-            <!-- Loading... -->
-        </div>
-    </div>
+<div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden;">
+  <iframe 
+    src="https://learn.threeminutetheory.com/embed-player-full.html?project=${projectData.id}" 
+    style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;" 
+    allow="autoplay; fullscreen" 
+    allowfullscreen>
+  </iframe>
 </div>`;
 
       // Modal overlay
