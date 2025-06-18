@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Video Player</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+        }
+        #player-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        video {
+            max-width: 100%;
+            max-height: 100%;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .button-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .interactive-button {
+            position: absolute;
+            pointer-events: all;
+            cursor: pointer;
+            padding: 10px 20px;
+            background-color: #2196F3;
+            color: #fff;
+            border-radius: 4px;
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .loading {
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            text-align: center;
+            padding: 20px;
+        }
+        .play-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 60px;
+            color: white;
+            background-color: rgba(0,0,0,0.5);
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+            pointer-events: all;
+        }
+    </style>
+</head>
+<body>
+    <div id="player-container">
+        <div class="loading">Loading interactive video...</div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const container = document.getElementById('player-container');
+            const urlParams = new URLSearchParams(window.location.search);
+            const projectId = urlParams.get('project');
+            
+            if (!projectId) {
+                container.innerHTML = '<div class="loading" style="color: red;">Error: Missing project ID</div>';
+                return;
+            }
+            
+            console.log(`Loading project: ${projectId}`);
+            initPlayer(container, projectId);
+        });
+        
+        async function initPlayer(container, projectId) {
+            try {
+                console.log('Fetching project data');
+                const url = `https://learn.threeminutetheory.com/api/embed/${projectId}`;
+                console.log('URL:', url);
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    cache: 'no-cache',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status}`);
+                }
+
+                const project = await response.json();
+                console.log('Project loaded successfully');
+                renderPlayer(container, project);
+                
+            } catch (error) {
+                console.error('Player initialization failed:', error);
+                container.innerHTML = `
+                    <div class="loading" style="color: red;">
+                        <strong>Error loading video player:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        function renderPlayer(container, project) {
+            // Find the start node
+            let startNode = null;
+            if (project.startNodeId) {
+                startNode = project.videos.find(v => v.id === project.startNodeId);
+            }
+            if (!startNode && project.videos && project.videos.length > 0) {
+                startNode = project.videos[0];
+            }
+            
+            if (!startNode) {
+                container.innerHTML = '<div class="loading">No videos found in project</div>';
+                return;
+            }
+            
+            console.log('Starting with node:', startNode.id);
+            
+            // Clear container
+            container.innerHTML = '';
+            
+            // Create video element
+            const video = document.createElement('video');
+            video.controls = true;
+            video.playsInline = true;
+            video.setAttribute('playsinline', '');
+            video.setAttribute('webkit-playsinline', '');
+            
+            // Create button overlay
+            const buttonOverlay = document.createElement('div');
+            buttonOverlay.className = 'button-overlay';
+            
+            // Add to container
+            container.appendChild(video);
+            container.appendChild(buttonOverlay);
+            
+            // Setup the video manager
+            const nodeManager = new NodeManager(video, buttonOverlay, project);
+            nodeManager.loadNode(startNode.id);
+        }
+        
+        // Helper to convert HLS URL to direct MP4 URL
+        function convertToDirectUrl(hlsUrl) {
+            if (hlsUrl && hlsUrl.includes('cloudflarestream.com')) {
+                const matches = hlsUrl.match(/\/([a-f0-9]+)\/manifest\/video\.m3u8/);
+                if (matches && matches[1]) {
+                    const videoId = matches[1];
+                    return `https://customer-z8czzsai11lby5n7.cloudflarestream.com/${videoId}/downloads/default.mp4`;
+                }
+            }
+            return hlsUrl;
+        }
+        
+        class NodeManager {
+            constructor(videoElement, buttonContainer, projectData) {
+                this.video = videoElement;
+                this.buttonContainer = buttonContainer;
+                this.project = projectData;
+                this.currentNodeId = null;
+                this.activeButtons = [];
+                
+                // Setup event listeners
+                this.video.addEventListener('ended', () => this.handleVideoEnd());
+            }
+            
+            loadNode(nodeId) {
+                console.log('Loading node:', nodeId);
+                const node = this.project.videos.find(v => v.id === nodeId);
+                
+                if (!node) {
+                    console.error('Node not found:', nodeId);
+                    return;
+                }
+                
+                this.currentNodeId = nodeId;
+                this.clearButtons();
+                
+                // Convert to direct URL if needed
+                const directUrl = convertToDirectUrl(node.url);
+                console.log('Using video URL:', directUrl);
+                
+                // Load the video
+                this.video.src = directUrl;
+                this.video.load();
+                
+                // Add play button
+                this.createPlayButton();
+                
+                // Set up interactive buttons when video is playing
+                this.video.addEventListener('timeupdate', this.createButtonsHandler(node));
+            }
+            
+            createPlayButton() {
+                const playBtn = document.createElement('div');
+                playBtn.className = 'play-button';
+                playBtn.innerHTML = '▶';
+                
+                playBtn.onclick = () => {
+                    this.video.play().catch(e => console.error('Play failed:', e));
+                    playBtn.style.display = 'none';
+                };
+                
+                this.buttonContainer.appendChild(playBtn);
+                this.activeButtons.push(playBtn);
+            }
+            
+            createButtonsHandler(node) {
+                let buttonsCreated = false;
+                
+                return () => {
+                    // Only create buttons once per video
+                    if (buttonsCreated || !node.buttons || node.buttons.length === 0) {
+                        return;
+                    }
+                    
+                    if (this.video.currentTime > 1) {
+                        buttonsCreated = true;
+                        this.createButtons(node);
+                    }
+                };
+            }
+            
+            createButtons(node) {
+                if (!node.buttons) return;
+                
+                node.buttons.forEach(button => {
+                    const btnElement = document.createElement('div');
+                    btnElement.className = 'interactive-button';
+                    btnElement.textContent = button.text || 'Choose';
+                    btnElement.style.position = 'absolute';
+                    btnElement.style.top = button.y || '50%';
+                    btnElement.style.left = button.x || '50%';
+                    btnElement.style.transform = 'translate(-50%, -50%)';
+                    btnElement.style.backgroundColor = button.color || '#2196F3';
+                    
+                    btnElement.addEventListener('click', () => {
+                        if (button.targetNode) {
+                            this.loadNode(button.targetNode);
+                        }
+                    });
+                    
+                    this.buttonContainer.appendChild(btnElement);
+                    this.activeButtons.push(btnElement);
+                });
+            }
+            
+            handleVideoEnd() {
+                console.log('Video ended');
+                const currentNode = this.project.videos.find(v => v.id === this.currentNodeId);
+                
+                if (currentNode && currentNode.endAction) {
+                    if (currentNode.endAction.type === 'node' && currentNode.endAction.targetNode) {
+                        console.log('Auto-advancing to node:', currentNode.endAction.targetNode);
+                        this.loadNode(currentNode.endAction.targetNode);
+                    }
+                }
+            }
+            
+            clearButtons() {
+                this.activeButtons.forEach(btn => {
+                    if (btn.parentNode) {
+                        btn.parentNode.removeChild(btn);
+                    }
+                });
+                this.activeButtons = [];
+            }
+        }
+    </script>
+</body>
+</html>
