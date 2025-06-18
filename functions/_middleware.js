@@ -7,6 +7,7 @@ export const onRequest = async ({ request, env, next }) => {
   const publicRoutes = [
     '/login',
     '/api/embed',  // Make the embed API publicly accessible
+    '/embed-player.html',  // Public embed player HTML page
   ];
 
   // Check if the current path is in our public routes list
