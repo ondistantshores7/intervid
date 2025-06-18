@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Video Player</title>
+    <!-- HLS.js for browsers that don't support HLS natively -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.14"></script>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+        }
+        #player-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        #video-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .preview-buttons-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .interactive-button {
+            position: absolute;
+            pointer-events: all;
+            cursor: pointer;
+            padding: 10px 20px;
+            background-color: #2196F3;
+            color: #fff;
+            border-radius: 4px;
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            transition: transform 0.2s ease, opacity 0.2s ease;
+            opacity: 0;
+            transform: scale(0.9);
+        }
+        .interactive-button.visible {
+            opacity: 1;
+            transform: scale(1);
+        }
+        .highlighter-toggle {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(0,0,0,0.5);
+            color: white;
+            border: 1px solid white;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            z-index: 10;
+            font-family: Arial, sans-serif;
+        }
+        .loading {
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            text-align: center;
+            padding: 20px;
+        }
+        .play-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 60px;
+            color: white;
+            background-color: rgba(0,0,0,0.5);
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+            pointer-events: all;
+        }
+        .highlighter-canvas {
+            z-index: 5;
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="player-container">
+        <div class="loading">Loading interactive video...</div>
+    </div>
+
+    <script>
+        // Utility function to convert hex to rgba
+        const hexToRgba = (hex, opacity) => {
+            let r = 0, g = 0, b = 0;
+            if (hex.length == 4) { // #RGB format
+                r = parseInt(hex[1] + hex[1], 16);
+                g = parseInt(hex[2] + hex[2], 16);
+                b = parseInt(hex[3] + hex[3], 16);
+            } else if (hex.length == 7) { // #RRGGBB format
+                r = parseInt(hex[1] + hex[2], 16);
+                g = parseInt(hex[3] + hex[4], 16);
+                b = parseInt(hex[5] + hex[6], 16);
+            }
+            return `rgba(${r},${g},${b},${opacity})`;
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const container = document.getElementById('player-container');
+            const urlParams = new URLSearchParams(window.location.search);
+            const projectId = urlParams.get('project');
+            
+            if (!projectId) {
+                container.innerHTML = '<div class="loading" style="color: red;">Error: Missing project ID</div>';
+                return;
+            }
+            
+            console.log(`Loading project: ${projectId}`);
+            initPlayer(container, projectId);
+        });
+        
+        async function initPlayer(container, projectId) {
+            try {
+                console.log('Fetching project data');
+                const url = `https://learn.threeminutetheory.com/api/embed/${projectId}`;
+                console.log('URL:', url);
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    cache: 'no-cache',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status}`);
+                }
+
+                const project = await response.json();
+                console.log('Project loaded successfully');
+                renderPlayer(container, project);
+                
+            } catch (error) {
+                console.error('Player initialization failed:', error);
+                container.innerHTML = `
+                    <div class="loading" style="color: red;">
+                        <strong>Error loading video player:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        function renderPlayer(container, project) {
+            // Find the start node
+            let startNode = null;
+            if (project.startNodeId) {
+                startNode = project.videos.find(v => v.id === project.startNodeId);
+            }
+            if (!startNode && project.videos && project.videos.length > 0) {
+                startNode = project.videos[0];
+            }
+            
+            if (!startNode) {
+                container.innerHTML = '<div class="loading">No videos found in project</div>';
+                return;
+            }
+            
+            console.log('Starting with node:', startNode.id);
+            
+            // Create player HTML
+            const playerHTML = `
+                <div id="video-container">
+                    <video id="preview-video"></video>
+                    <div class="preview-buttons-overlay"></div>
+                    <button class="highlighter-toggle">Highlighter: Off</button>
+                </div>
+            `;
+            
+            // Clear container and add player HTML
+            container.innerHTML = playerHTML;
+            
+            // Initialize player
+            new IVSPlayer(container, project, startNode.id);
+        }
+        
+        class IVSPlayer {
+            constructor(container, projectData, startNodeId) {
+                this.container = container;
+                this.project = projectData;
+                this.videoContainer = container.querySelector('#video-container');
+                this.videoEl = container.querySelector('#preview-video');
+                this.buttonsContainer = container.querySelector('.preview-buttons-overlay');
+                this.highlighterToggle = container.querySelector('.highlighter-toggle');
+                
+                // Highlighter elements
+                this.canvas = null;
+                this.ctx = null;
+                this.isDrawing = false;
+                this.isHighlightMode = false;
+                this.hls = null;
+                this.currentNodeId = null;
+                this.timeUpdateHandler = null;
+                this.activeButtons = new Map(); // Track active buttons and their timeouts
+                
+                if (!this.videoEl || !this.buttonsContainer) {
+                    console.error('Player elements not found in the container.');
+                    return;
+                }
+                
+                // Set up event handlers
+                this.buttonClickHandler = this.handleButtonClick.bind(this);
+                this.buttonsContainer.addEventListener('click', this.buttonClickHandler);
+                this.videoEl.addEventListener('ended', () => this.handleVideoEnd());
+                
+                // Set up highlighter toggle
+                this.highlighterToggle.addEventListener('click', () => this.toggleHighlight());
+                
+                this.setupHighlighter();
+                this.loadVideo(startNodeId);
+            }
+            
+            setupHighlighter() {
+                if (!this.videoContainer || !this.videoEl) return;
+                
+                // Create canvas overlay
+                this.canvas = document.createElement('canvas');
+                this.canvas.className = 'highlighter-canvas';
+                this.videoContainer.appendChild(this.canvas);
+                this.ctx = this.canvas.getContext('2d');
+                this.ctx.lineWidth = 6;
+                this.currentColor = '#2196f3'; // bright blue
+                this.ctx.strokeStyle = this.currentColor;
+                this.ctx.lineCap = 'round';
+                this.ctx.lineJoin = 'round';
+                
+                // Resize canvas to match video
+                const resize = () => {
+                    const width = this.videoContainer.clientWidth;
+                    const height = this.videoContainer.clientHeight;
+                    const dpr = window.devicePixelRatio || 1;
+                    this.canvas.width = width * dpr;
+                    this.canvas.height = height * dpr;
+                    this.canvas.style.width = width + 'px';
+                    this.canvas.style.height = height + 'px';
+                    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+                    this.ctx.scale(dpr, dpr);
+                };
+                
+                resize();
+                window.addEventListener('resize', resize);
+                this.videoEl.addEventListener('loadedmetadata', resize);
+                
+                // Drawing events
+                this.canvas.addEventListener('mousedown', (e) => {
+                    // ensure stroke style and width each new stroke
+                    this.ctx.strokeStyle = this.currentColor;
+                    this.ctx.lineWidth = 6;
+                    if (!this.isHighlightMode) return;
+                    this.isDrawing = true;
+                    
+                    const rect = this.canvas.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x, y);
+                });
+                
+                this.canvas.addEventListener('mousemove', (e) => {
+                    if (!this.isDrawing || !this.isHighlightMode) return;
+                    
+                    const rect = this.canvas.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    
+                    this.ctx.lineTo(x, y);
+                    this.ctx.stroke();
+                });
+                
+                const endDraw = () => {
+                    this.isDrawing = false;
+                    this.ctx.closePath();
+                };
+                
+                this.canvas.addEventListener('mouseup', endDraw);
+                this.canvas.addEventListener('mouseout', endDraw);
+                
+                // Touch events for mobile
+                this.canvas.addEventListener('touchstart', (e) => {
+                    if (!this.isHighlightMode) return;
+                    e.preventDefault();
+                    this.isDrawing = true;
+                    
+                    const rect = this.canvas.getBoundingClientRect();
+                    const touch = e.touches[0];
+                    const x = touch.clientX - rect.left;
+                    const y = touch.clientY - rect.top;
+                    
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x, y);
+                });
+                
+                this.canvas.addEventListener('touchmove', (e) => {
+                    if (!this.isDrawing || !this.isHighlightMode) return;
+                    e.preventDefault();
+                    
+                    const rect = this.canvas.getBoundingClientRect();
+                    const touch = e.touches[0];
+                    const x = touch.clientX - rect.left;
+                    const y = touch.clientY - rect.top;
+                    
+                    this.ctx.lineTo(x, y);
+                    this.ctx.stroke();
+                });
+                
+                this.canvas.addEventListener('touchend', endDraw);
+            }
+            
+            toggleHighlight() {
+                this.isHighlightMode = !this.isHighlightMode;
+                
+                if (this.isHighlightMode) {
+                    this.highlighterToggle.textContent = 'Highlighter: On';
+                    this.canvas.style.pointerEvents = 'auto';
+                    this.videoEl.controls = false;
+                } else {
+                    this.highlighterToggle.textContent = 'Highlighter: Off';
+                    this.canvas.style.pointerEvents = 'none';
+                    this.videoEl.controls = true;
+                    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                }
+            }
+            
+            loadVideo(nodeId) {
+                console.log('Loading node:', nodeId);
+                const node = this.project.videos.find(v => v.id === nodeId);
+                
+                if (!node) {
+                    console.error('Node not found:', nodeId);
+                    return;
+                }
+                
+                this.currentNodeId = nodeId;
+                this.clearButtons();
+                
+                // Use the original HLS URL
+                const videoUrl = node.url;
+                console.log('Loading video URL:', videoUrl);
+                
+                // Set up HLS if needed
+                if (Hls.isSupported()) {
+                    if (this.hls) {
+                        // Destroy old instance
+                        this.hls.destroy();
+                    }
+                    
+                    this.hls = new Hls({
+                        enableWorker: false
+                    });
+                    
+                    this.hls.loadSource(videoUrl);
+                    this.hls.attachMedia(this.videoEl);
+                    
+                    this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        // Clear previous timeupdate handler
+                        if (this.timeUpdateHandler) {
+                            this.videoEl.removeEventListener('timeupdate', this.timeUpdateHandler);
+                        }
+                        
+                        // Create new timeupdate handler for this node
+                        this.timeUpdateHandler = this.createTimeUpdateHandler(node);
+                        this.videoEl.addEventListener('timeupdate', this.timeUpdateHandler);
+                        
+                        this.videoEl.play().catch(e => console.error('Play failed:', e));
+                    });
+                } 
+                else if (this.videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+                    // For Safari which has native HLS support
+                    this.videoEl.src = videoUrl;
+                    
+                    // Clear previous timeupdate handler
+                    if (this.timeUpdateHandler) {
+                        this.videoEl.removeEventListener('timeupdate', this.timeUpdateHandler);
+                    }
+                    
+                    // Create new timeupdate handler for this node
+                    this.timeUpdateHandler = this.createTimeUpdateHandler(node);
+                    this.videoEl.addEventListener('timeupdate', this.timeUpdateHandler);
+                    
+                    this.videoEl.play().catch(e => console.error('Play failed:', e));
+                }
+                else {
+                    console.error('HLS is not supported in this browser and no fallback was provided');
+                }
+            }
+            
+            createTimeUpdateHandler(node) {
+                // Check if this node has buttons
+                if (!node.buttons || node.buttons.length === 0) {
+                    return () => {}; // Empty handler if no buttons
+                }
+                
+                // Track which buttons have been shown
+                const buttonsShown = new Set();
+                
+                // Return the timeupdate handler function
+                return () => {
+                    const currentTime = this.videoEl.currentTime;
+                    const duration = this.videoEl.duration || 0;
+                    
+                    // Process all buttons for this node
+                    node.buttons.forEach(button => {
+                        // Show buttons when they should appear
+                        if (!buttonsShown.has(button.id) && 
+                            currentTime >= (button.timestamp || 0)) {
+                            
+                            buttonsShown.add(button.id);
+                            this.createButton(button);
+                        }
+                    });
+                };
+            }
+            
+            createButton(buttonData) {
+                // Create button element
+                const button = document.createElement('div');
+                button.className = 'interactive-button';
+                button.textContent = buttonData.text || 'Choose';
+                button.dataset.id = buttonData.id;
+                button.dataset.targetNode = buttonData.targetNode;
+                
+                // Position the button
+                button.style.top = buttonData.y || '50%';
+                button.style.left = buttonData.x || '50%';
+                button.style.transform = 'translate(-50%, -50%)';
+                
+                // Style the button
+                if (buttonData.color) {
+                    button.style.backgroundColor = buttonData.color;
+                }
+                if (buttonData.fontSize) {
+                    button.style.fontSize = buttonData.fontSize;
+                }
+                
+                // Add button to container
+                this.buttonsContainer.appendChild(button);
+                
+                // Animate in after a short delay
+                setTimeout(() => {
+                    button.classList.add('visible');
+                }, 10);
+                
+                // Track the button
+                this.activeButtons.set(buttonData.id, button);
+            }
+            
+            handleButtonClick(e) {
+                // Find the button element that was clicked
+                let buttonEl = e.target;
+                if (!buttonEl.classList.contains('interactive-button')) {
+                    return;
+                }
+                
+                const targetNodeId = buttonEl.dataset.targetNode;
+                if (targetNodeId) {
+                    // Load the target node
+                    this.loadVideo(targetNodeId);
+                }
+            }
+            
+            handleVideoEnd() {
+                console.log('Video ended');
+                const currentNode = this.project.videos.find(v => v.id === this.currentNodeId);
+                
+                // Check if the current node has an end action
+                if (currentNode && currentNode.endAction) {
+                    if (currentNode.endAction.type === 'node' && currentNode.endAction.targetNode) {
+                        console.log('Auto-advancing to node:', currentNode.endAction.targetNode);
+                        this.loadVideo(currentNode.endAction.targetNode);
+                    }
+                }
+            }
+            
+            clearButtons() {
+                // Remove all buttons from the container
+                this.activeButtons.forEach(button => {
+                    if (button.parentNode) {
+                        button.parentNode.removeChild(button);
+                    }
+                });
+                
+                this.activeButtons.clear();
+            }
+            
+            destroy() {
+                // Clean up event listeners and resources
+                if (this.hls) {
+                    this.hls.destroy();
+                }
+                
+                if (this.timeUpdateHandler) {
+                    this.videoEl.removeEventListener('timeupdate', this.timeUpdateHandler);
+                }
+                
+                this.buttonClickHandler && this.buttonsContainer.removeEventListener('click', this.buttonClickHandler);
+            }
+        }
+    </script>
+</body>
+</html>
