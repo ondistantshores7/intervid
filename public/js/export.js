@@ -20,8 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch('/api/saveProject', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${window.ADMIN_API_KEY}` // Set this in your main JS
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(projectData)
       });
