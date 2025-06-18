@@ -91,15 +91,20 @@
     playerDiv.style.width = '100%';
     playerDiv.style.height = '100%';
     playerDiv.style.position = 'relative';
+    playerDiv.style.backgroundColor = '#000';
     
     // Create video element
     const video = document.createElement('video');
     video.style.width = '100%';
     video.style.height = '100%';
     video.style.objectFit = 'contain';
+    video.style.display = 'block';
     video.controls = true;
     video.playsInline = true;
     video.setAttribute('playsinline', '');
+    video.setAttribute('controls', '');
+    video.setAttribute('webkit-playsinline', '');
+    video.setAttribute('x-webkit-airplay', 'allow');
     
     // Create button container
     const buttonOverlay = document.createElement('div');
@@ -121,6 +126,22 @@
     nodeManager.loadNode(startNode.id);
   }
   
+  // Helper to convert HLS URL to direct MP4 URL
+  function convertToDirectUrl(hlsUrl) {
+    // If it's a Cloudflare Stream URL, convert from HLS to direct MP4
+    if (hlsUrl && hlsUrl.includes('cloudflarestream.com')) {
+      // Extract the video ID from the URL
+      const matches = hlsUrl.match(/\/([a-f0-9]+)\/manifest\/video\.m3u8/);
+      if (matches && matches[1]) {
+        const videoId = matches[1];
+        return `https://customer-z8czzsai11lby5n7.cloudflarestream.com/${videoId}/downloads/default.mp4`;
+      }
+    }
+    
+    // Return original URL if we can't convert it
+    return hlsUrl;
+  }
+  
   // Node Manager to handle video switching and buttons
   class NodeManager {
     constructor(videoElement, buttonContainer, projectData) {
@@ -130,31 +151,8 @@
       this.currentNodeId = null;
       this.activeButtons = [];
       
-      // Setup HLS.js if needed
-      this.setupHls();
-      
       // Setup event listeners
       this.video.addEventListener('ended', () => this.handleVideoEnd());
-    }
-    
-    setupHls() {
-      // Check if HLS is supported natively
-      if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
-        console.log('Native HLS support');
-        this.hls = null;
-      } 
-      // Otherwise use HLS.js if available
-      else if (window.Hls && Hls.isSupported()) {
-        console.log('Using HLS.js');
-        this.hls = new Hls({
-          enableWorker: false,
-          lowLatencyMode: false
-        });
-      } 
-      else {
-        console.warn('HLS not supported');
-        this.hls = null;
-      }
     }
     
     loadNode(nodeId) {
@@ -169,8 +167,12 @@
       this.currentNodeId = nodeId;
       this.clearButtons();
       
+      // Convert HLS URL to direct MP4 URL
+      const directUrl = convertToDirectUrl(node.url);
+      console.log('Using direct URL:', directUrl);
+      
       // Load the video
-      this.loadVideo(node.url);
+      this.loadVideo(directUrl);
       
       // Set up the buttons when video is playing
       this.video.addEventListener('timeupdate', this.createButtonsHandler(node));
@@ -194,17 +196,36 @@
     
     loadVideo(url) {
       console.log('Loading video URL:', url);
+      this.video.src = url;
+      this.video.load();
       
-      if (this.hls) {
-        this.hls.loadSource(url);
-        this.hls.attachMedia(this.video);
-        this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          this.video.play().catch(e => console.error('Autoplay prevented:', e));
-        });
-      } else {
-        this.video.src = url;
-        this.video.play().catch(e => console.error('Autoplay prevented:', e));
-      }
+      // Create a play button overlay
+      const playBtn = document.createElement('div');
+      playBtn.innerHTML = '▶';
+      playBtn.style.position = 'absolute';
+      playBtn.style.top = '50%';
+      playBtn.style.left = '50%';
+      playBtn.style.transform = 'translate(-50%, -50%)';
+      playBtn.style.fontSize = '60px';
+      playBtn.style.color = 'white';
+      playBtn.style.backgroundColor = 'rgba(0,0,0,0.5)';
+      playBtn.style.width = '80px';
+      playBtn.style.height = '80px';
+      playBtn.style.borderRadius = '50%';
+      playBtn.style.display = 'flex';
+      playBtn.style.alignItems = 'center';
+      playBtn.style.justifyContent = 'center';
+      playBtn.style.cursor = 'pointer';
+      playBtn.style.zIndex = '10';
+      playBtn.style.pointerEvents = 'all';
+      
+      playBtn.onclick = () => {
+        this.video.play().catch(e => console.error('Play failed:', e));
+        playBtn.style.display = 'none';
+      };
+      
+      this.buttonContainer.appendChild(playBtn);
+      this.activeButtons.push(playBtn);
     }
     
     createButtons(node) {
