@@ -21,13 +21,23 @@ document.addEventListener('DOMContentLoaded', function() {
 async function initPlayer(container, projectId) {
     console.log('Fetching project data for: ' + projectId);
     try {
-        // Fetch project data
-        const response = await fetch(`https://learn.threeminutetheory.com/api/project/${projectId}`);
+        // Fetch project data - use embed API endpoint which doesn't require auth
+        const response = await fetch(`https://learn.threeminutetheory.com/api/embed/${projectId}`);
         if (!response.ok) {
+            console.error(`Failed to load project data: ${response.status} ${response.statusText}`);
             throw new Error(`Failed to load project data: ${response.status}`);
         }
-        const projectData = await response.json();
-        console.log('Project data loaded:', projectData);
+        const responseText = await response.text();
+        console.log('Raw API response:', responseText);
+        
+        let projectData;
+        try {
+            projectData = JSON.parse(responseText);
+            console.log('Project data loaded:', projectData);  
+        } catch (e) {
+            console.error('JSON parse error:', e);
+            throw new Error('Invalid project data format');
+        }
         
         // Create player HTML
         const playerHTML = `
