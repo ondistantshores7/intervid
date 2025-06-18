@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Show embed code
       const embedCode = `
-<script type="text/javascript" src="https://learn.threeminutetheory.com/player.js" async></script>
+<script type="text/javascript" src="https://learn.threeminutetheory.com/js/player.js" async></script>
 <div class="iv-player_responsive_padding" style="padding:56.25% 0 0 0;position:relative;" data-project="${projectData.id}">
     <div class="iv-player_responsive_wrapper" style="height:100%;left:0;position:absolute;top:0;width:100%;">
         <div class="iv-player_embed iv-player_async_loader" style="height:100%;position:relative;width:100%">
