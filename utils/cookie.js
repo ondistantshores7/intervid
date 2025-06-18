@@ -7,7 +7,7 @@ export async function createCookie(secret) {
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime(`${maxAge}s`)
     .sign(new TextEncoder().encode(secret));
-  return `session=${token}; Path=/; HttpOnly; Max-Age=${maxAge}; SameSite=Lax`;
+  return `session=${token}; Path=/; HttpOnly; Max-Age=${maxAge}; SameSite=Lax; Secure`;
 }
 
 export async function verifyCookie(cookie, secret) {
