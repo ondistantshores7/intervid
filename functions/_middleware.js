@@ -3,8 +3,15 @@ import { verifyCookie } from "../utils/cookie";
 export const onRequest = async ({ request, env, next }) => {
   const url = new URL(request.url);
 
-  // The /login route is always accessible
-  if (url.pathname === "/login") {
+  // Public routes that don't require authentication
+  const publicRoutes = [
+    '/login',
+    '/api/embed',  // Make the embed API publicly accessible
+  ];
+
+  // Check if the current path is in our public routes list
+  const isPublicRoute = publicRoutes.some(route => url.pathname === route || url.pathname.startsWith(route + '/'));
+  if (isPublicRoute) {
     return next();
   }
 
