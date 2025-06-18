@@ -10,9 +10,7 @@ database_id = "faf4e62c-4550-4af2-9a02-1f3d836d2577"
 
 
 [env.production]
-# Note: Production variables are set as SECRETS in the Cloudflare dashboard.
-# The values here are only placeholders to satisfy the configuration schema.
-vars = { ADMIN_API_KEY = "placeholder", ADMIN_PASSWORD = "placeholder" }
+
 
 [[env.production.d1_databases]]
 binding = "DB"
