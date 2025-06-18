@@ -4,7 +4,7 @@ export const onRequestGet = async ({ request }) => {
   // serve simple login form
   return new Response(`<!doctype html><html><body>
   <form method="POST">
-    <input name="password" type="password" placeholder="Password" />
+    <input name="password" type="password" placeholder="Password" autocomplete="current-password" />
     <button type="submit">Login</button>
   </form></body></html>`, { headers: { "Content-Type": "text/html" } });
 };
