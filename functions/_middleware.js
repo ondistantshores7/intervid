@@ -10,6 +10,7 @@ export const onRequest = async ({ request, env, next }) => {
       path === '/' || // Also allow root path
       path.includes('embed') || // Allow ANY URL with 'embed' in it
       path.startsWith('/api/embed') || 
+      path.startsWith('/player') || 
       path.startsWith('/js/') || 
       path.startsWith('/css/') ||
       path.startsWith('/assets/') ||
