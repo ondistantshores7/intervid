@@ -20,11 +20,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1;
-            background-color: #000;
+            /* Fill entire iframe */
         }
         #video-container {
             position: relative;
@@ -34,7 +30,7 @@
         video {
             width: 100%;
             height: 100%;
-            object-fit: contain;
+            object-fit: cover; /* Fill area without letterboxing */
         }
         .preview-buttons-overlay {
             position: absolute;
@@ -78,20 +74,11 @@
             console.log('Loading project:', projectId);
             
             try {
-                // Fetch project data from the public embed API with absolute URL
-                const apiUrl = `${window.location.origin}/api/embed/${projectId}`;
-                console.log('Fetching project data from:', apiUrl);
-                
-                const response = await fetch(apiUrl, {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json'
-                    },
-                    cache: 'no-cache'
-                });
+                // Fetch project data from the public embed API
+                const response = await fetch(`/api/embed/${projectId}`);
                 
                 if (!response.ok) {
-                    throw new Error(`Failed to load project: ${response.status} ${response.statusText}`);
+                    throw new Error(`Failed to load project: ${response.status}`);
                 }
                 
                 const projectData = await response.json();
