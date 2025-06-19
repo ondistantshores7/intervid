@@ -390,76 +390,149 @@ export async function onRequest({ request, params, env }) {
                 this.isDrawing = false;
             }
             
+            _convertCloudflareStreamUrlToMp4(hlsUrl) {
+                if (typeof hlsUrl === 'string' && hlsUrl.includes('cloudflarestream.com') && hlsUrl.includes('/manifest/video.m3u8')) {
+                    const match = hlsUrl.match(/https:\/\/([^/]+)\/([a-f0-9]{32})\/manifest\/video\.m3u8/);
+                    if (match && match[1] && match[2]) {
+                        const customerDomain = match[1];
+                        const videoId = match[2];
+                        return 'https://' + customerDomain + '/' + videoId + '/downloads/default.mp4';
+                    }
+                }
+                return hlsUrl;
+            }
+            
             loadVideo(nodeId) {
-                // Clear existing buttons
-                this.clearButtons();
-                
+                console.log('Player: Attempting to load video node: ' + nodeId);
+
+                if (this.activeButtons && typeof this.clearButtons === 'function') {
+                    this.clearButtons(); // Clears from DOM and map
+                }
+
+                const node = this.project.videos.find(v => v.id === nodeId);
+                if (!node) {
+                    console.error('Player: Node not found:', nodeId);
+                    showError('Video content not found. Please check project data.');
+                    return;
+                }
+                this.currentNode = node;
+                this.currentNodeId = nodeId;
+                this.loopCount = 0;
+
+                if (this.hls) {
+                    this.hls.destroy();
+                    this.hls = null;
+                }
+
+                const videoURL = node.url;
+                if (!videoURL || typeof videoURL !== 'string') {
+                    console.error('Player: Video URL is missing or invalid for node:', nodeId, node);
+                    showError('Video URL is invalid. Please check project data.');
+                    return;
+                }
+
+                console.log('Player: Processing video URL: ' + videoURL + ' for node ' + nodeId);
+                this.videoEl.poster = ''; // Clear poster
+
+                if (Hls.isSupported() && videoURL.includes('.m3u8')) {
+                    console.log('Player: HLS.js is supported. Loading HLS stream.');
+                    this.hls = new Hls({
+                        maxBufferSize: 0, // Set to 0 for live/low-latency, or a few MB for VOD
+                        maxBufferLength: 30, // Max buffer length in seconds
+                        enableWorker: true // Use Web Workers for HLS processing
+                    });
+                    this.hls.loadSource(videoURL);
+                    this.hls.attachMedia(this.videoEl);
+                    this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        console.log('Player: HLS manifest parsed. Attempting to play.');
+                        this.videoEl.play().catch(e => console.error('Player: HLS playback failed after manifest parse:', e));
+                    });
+                    this.hls.on(Hls.Events.ERROR, (event, data) => {
+                        console.error('Player: HLS.js error:', { type: data.type, details: data.details, fatal: data.fatal, url: data.url });
+                        if (data.fatal) {
+                            let mp4UrlAttempted = false;
+                            switch (data.type) {
+                                case Hls.ErrorTypes.NETWORK_ERROR:
+                                    console.error('Player: HLS fatal network error.');
+                                    const mp4Url = this._convertCloudflareStreamUrlToMp4(videoURL);
+                                    if (mp4Url !== videoURL) {
+                                        console.log('Player: HLS.js network error, attempting MP4 fallback: ' + mp4Url);
+                                        if (this.hls) { this.hls.destroy(); this.hls = null; }
+                                        this.videoEl.src = mp4Url;
+                                        this.videoEl.play().catch(e => console.error('Player: MP4 fallback playback failed (network error):', e));
+                                        mp4UrlAttempted = true;
+                                    }
+                                    break;
+                                case Hls.ErrorTypes.MEDIA_ERROR:
+                                    console.error('Player: HLS fatal media error, trying to recover...');
+                                    if (this.hls) this.hls.recoverMediaError();
+                                    break;
+                                default:
+                                    if (this.hls) { this.hls.destroy(); this.hls = null; }
+                                    break;
+                            }
+                            if (!mp4UrlAttempted && videoURL.includes('.m3u8')) {
+                                const fallbackMp4Url = this._convertCloudflareStreamUrlToMp4(videoURL);
+                                if (fallbackMp4Url !== videoURL) {
+                                    console.warn('Player: Unhandled HLS.js fatal error (' + data.details + '), attempting MP4 fallback: ' + fallbackMp4Url);
+                                    if (this.hls) { this.hls.destroy(); this.hls = null; }
+                                    this.videoEl.src = fallbackMp4Url;
+                                    this.videoEl.play().catch(e => console.error('Player: MP4 fallback playback failed (default fatal error):', e));
+                                }
+                            }
+                        }
+                    });
+                } else if (this.videoEl.canPlayType('application/vnd.apple.mpegurl') && videoURL.includes('.m3u8')) {
+                    console.log('Player: Native HLS supported (e.g., Safari). Setting src directly.');
+                    this.videoEl.src = videoURL;
+                    this.videoEl.addEventListener('loadedmetadata', () => {
+                        console.log('Player: Native HLS metadata loaded. Attempting to play.');
+                        this.videoEl.play().catch(e => console.error('Player: Native HLS playback failed:', e));
+                    }, { once: true });
+                } else {
+                    console.log('Player: HLS.js not supported or not an M3U8 URL. Trying direct play or MP4 conversion.');
+                    const playableUrl = this._convertCloudflareStreamUrlToMp4(videoURL);
+                    console.log('Player: Using URL for direct play: ' + playableUrl);
+                    this.videoEl.src = playableUrl;
+                    this.videoEl.play().catch(e => console.error('Player: Direct/MP4 playback failed:', e));
+                }
+
                 if (this.timeUpdateHandler) {
                     this.videoEl.removeEventListener('timeupdate', this.timeUpdateHandler);
-                    this.timeUpdateHandler = null;
                 }
-                
-                // Find the video node by ID
-                const videoNode = this.project.videos.find(video => video.id === nodeId);
-                if (!videoNode) {
-                    console.error('Video node not found:', nodeId);
-                    return;
-                }
-                
-                // Set current node
-                this.currentNodeId = nodeId;
-                
-                // Handle video source
-                if (videoNode.hlsUrl) {
-                    if (this.hls) {
-                        this.hls.destroy();
-                    }
-                    
-                    if (Hls.isSupported()) {
-                        this.hls = new Hls();
-                        this.hls.loadSource(videoNode.hlsUrl);
-                        this.hls.attachMedia(this.videoEl);
-                        this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                            this.videoEl.play();
-                        });
-                    } else if (this.videoEl.canPlayType('application/vnd.apple.mpegurl')) {
-                        this.videoEl.src = videoNode.hlsUrl;
-                        this.videoEl.addEventListener('loadedmetadata', () => {
-                            this.videoEl.play();
-                        });
-                    }
-                } else if (videoNode.url) {
-                    this.videoEl.src = videoNode.url;
-                    this.videoEl.play();
-                } else {
-                    console.error('No valid video URL found for node:', nodeId);
-                    return;
-                }
-                
-                // Set up time update listener for buttons
-                this.timeUpdateHandler = () => {
-                    const currentTime = this.videoEl.currentTime;
-                    
-                    if (videoNode.buttons && videoNode.buttons.length > 0) {
-                        videoNode.buttons.forEach(button => {
-                            const shouldBeActive = currentTime >= button.timestamp;
-                            const isCurrentlyActive = this.activeButtons.has(button.id);
-                            
-                            if (shouldBeActive && !isCurrentlyActive) {
-                                this.createButton(button, videoNode.id);
-                            } else if (!shouldBeActive && isCurrentlyActive) {
-                                this.removeButton(button.id);
-                            }
-                        });
-                    }
-                };
-                
+                this.timeUpdateHandler = this.updateButtons.bind(this);
                 this.videoEl.addEventListener('timeupdate', this.timeUpdateHandler);
                 
-                // Clear canvas when loading a new video
-                this.clearCanvas();
-                
-                console.log('Loaded video node:', videoNode.id);
+                if (typeof this.clearCanvas === 'function') {
+                    this.clearCanvas();
+                }
+                console.log('Player: Finished setting up video node: ' + nodeId);
+            }
+
+            updateButtons() {
+                if (!this.videoEl || !this.currentNode || !this.currentNode.buttons) {
+                    this.clearButtons();
+                    return;
+                }
+                const currentTime = this.videoEl.currentTime;
+                const buttonsToShow = new Set();
+
+                this.currentNode.buttons.forEach(buttonData => {
+                    if (currentTime >= buttonData.startTime && currentTime <= buttonData.endTime) {
+                        buttonsToShow.add(buttonData.id);
+                        if (!this.activeButtons.has(buttonData.id)) {
+                            this.createButton(buttonData);
+                        }
+                    }
+                });
+
+                // Remove buttons that are no longer active
+                const currentActiveButtonIds = Array.from(this.activeButtons.keys());
+                currentActiveButtonIds.forEach(buttonId => {
+                    if (!buttonsToShow.has(buttonId)) {
+                        this.removeButton(buttonId);
+                    }
+                });
             }
             
             createButton(buttonData) {
@@ -468,23 +541,19 @@ export async function onRequest({ request, params, env }) {
                 buttonEl.textContent = buttonData.text || 'Click';
                 buttonEl.dataset.targetNodeId = buttonData.targetNodeId;
                 
-                // Position the button
-                buttonEl.style.top = \`\${buttonData.position.y}%\`;
-                buttonEl.style.left = \`\${buttonData.position.x}%\`;
+                // Position the button using string concatenation
+                buttonEl.style.position = 'absolute'; // Ensure buttons are positioned within overlay
+                buttonEl.style.top = String(buttonData.position.y) + '%';
+                buttonEl.style.left = String(buttonData.position.x) + '%';
                 
-                // Add click handler
                 buttonEl.addEventListener('click', () => {
                     if (buttonData.targetNodeId) {
                         this.loadVideo(buttonData.targetNodeId);
                     }
                 });
                 
-                // Add to DOM
                 this.buttonsContainer.appendChild(buttonEl);
-                
-                // Track active button
                 this.activeButtons.set(buttonData.id, buttonEl);
-                
                 return buttonEl;
             }
             
