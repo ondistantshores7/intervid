@@ -154,7 +154,7 @@ export async function onRequest({ request, params, env }) {
     
     <div id="player-container">
         <div id="video-container">
-            <video id="video-player" playsinline controls></video>
+            <video id="video-player" playsinline controls muted autoplay></video>
             <div class="buttons-overlay"></div>
             <div id="canvas-container">
                 <canvas id="highlight-canvas"></canvas>
