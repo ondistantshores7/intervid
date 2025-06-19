@@ -27,11 +27,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (!response.ok) throw new Error('Failed to save project');
       
-      // Show embed code for iframe embedding with full-featured player
+      // Show embed code for iframe embedding with standalone player (no app UI, just player)
       const embedCode = `
 <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden;">
   <iframe 
-    src="https://learn.threeminutetheory.com/embed-player-full.html?project=${projectData.id}" 
+    src="https://learn.threeminutetheory.com/standalone-player.html?project=${projectData.id}" 
     style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;" 
     allow="autoplay; fullscreen" 
     allowfullscreen>
