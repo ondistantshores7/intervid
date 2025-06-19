@@ -3,7 +3,7 @@ export async function onRequest({ request, params, env }) {
   const projectId = new URL(request.url).searchParams.get('project');
   
   // Build a complete standalone player HTML that doesn't depend on any other assets
-  const htmlContent = `<!DOCTYPE html>
+  const htmlContent = '<!DOCTYPE html>' + '\n' + `
 <html lang="en">
 <head>
     <meta charset="UTF-8">
