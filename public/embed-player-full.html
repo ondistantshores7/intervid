@@ -44,6 +44,20 @@
             position: absolute;
             pointer-events: all;
             cursor: pointer;
+            padding: 10px 20px;
+            background-color: #2196F3;
+            color: #fff;
+            border-radius: 4px;
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            transition: transform 0.2s ease, opacity 0.2s ease;
+            opacity: 0;
+            transform: scale(0.9);
+        }
+        .interactive-button.visible {
+            opacity: 1;
+            transform: scale(1);
         }
     </style>
 </head>
