@@ -84,7 +84,7 @@
     position: absolute;
     left: 0;
     top: 0;
-    opacity: 1;
+
     transition: none;
     will-change: transform, opacity;
     transform-origin: center;

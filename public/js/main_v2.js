@@ -1260,8 +1260,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!e || e.target === document.getElementById('button-bgcolor-input')) {
             style.backgroundColor = document.getElementById('button-bgcolor-input').value || '#007bff';
         }
-        if (!e || e.target === document.getElementById('button-opacity-slider')) {
-             style.opacity = buttonOpacitySlider.value.toString();
+        if (!e || e.target === document.getElementById('button-opacity-slider') || e.target === document.getElementById('button-bgcolor-input')) {
+             const baseHex = document.getElementById('button-bgcolor-input').value || '#007bff';
+             const alpha = parseFloat(buttonOpacitySlider.value);
+             const rgba = hexToRgba(baseHex, alpha);
+             style.backgroundColor = rgba;
          }
          if (!e || e.target === document.getElementById('button-font-family-input')) {
             style.fontFamily = document.getElementById('button-font-family-input').value || 'Arial, sans-serif';
