@@ -1149,6 +1149,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!button.animation) button.animation = { type: 'none', direction: 'left', duration: '1' };
         if (!button.animateOut) button.animateOut = { enabled: false, delay: 5 };
 
+        // Define style reference early so subsequent code can use it safely
+        const style = button.style;
+
         // Track if we need to update the button's dimensions/position
         const needsFullRender = e && (
             e.target === buttonPosXInput ||
@@ -1248,7 +1251,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Update style properties without affecting dimensions
-        const style = button.style;
+        
 
         // Only update the style property that was changed
         if (!e || e.target === document.getElementById('button-color-input')) {
