@@ -354,6 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Apply base styles from button.style, position, and text/embed content
             if (button.style) {
                 Object.assign(buttonPreview.style, button.style); // Apply user-defined styles
+                if (button.style.fontSize) buttonPreview.style.lineHeight = button.style.fontSize;
             }
             buttonPreview.style.position = 'absolute';
             buttonPreview.style.left = button.position?.x || '40%'; // Default slightly different from player for editor

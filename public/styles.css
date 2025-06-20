@@ -648,13 +648,14 @@ body.light-mode hr.style-separator {
 
 .node-main-content {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 15px;
 }
 
 
 
 .button-sidebar {
+    flex: 0 0 350px;
     display: flex;
     flex-direction: column;
     gap: 10px;
