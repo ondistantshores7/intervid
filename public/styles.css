@@ -640,16 +640,17 @@ body.light-mode hr.style-separator {
     color:#fff;
     flex-grow: 1;
     padding: 20px;
-    overflow-y: auto;
-    display: grid;
-    grid-template-columns: 1fr 350px;
+    overflow: auto; /* Allow horizontal and vertical scrolling */
+    display: flex; /* Use flexbox for layout */
     gap: 20px;
+    align-items: flex-start; /* Align items to the top */
 }
 
 .node-main-content {
     display: flex;
     flex-direction: column;
     gap: 15px;
+    flex-shrink: 0; /* Prevent this column from shrinking */
 }
 
 
@@ -660,6 +661,8 @@ body.light-mode hr.style-separator {
     gap: 10px;
     border-left: 1px solid var(--border-color);
     padding-left: 20px;
+    width: 350px; /* Set a fixed width */
+    flex-shrink: 0; /* Prevent sidebar from shrinking */
 }
 
 /* Timeline Scrubber */
