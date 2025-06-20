@@ -354,7 +354,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Apply base styles from button.style, position, and text/embed content
             if (button.style) {
                 Object.assign(buttonPreview.style, button.style); // Apply user-defined styles
-                if (button.style.fontSize) buttonPreview.style.lineHeight = button.style.fontSize;
             }
             buttonPreview.style.position = 'absolute';
             buttonPreview.style.left = button.position?.x || '40%'; // Default slightly different from player for editor
@@ -741,6 +740,24 @@ document.addEventListener('DOMContentLoaded', () => {
         // Only set these for non-YouTube videos, as YouTube iframe handles its own events
         if (!youtubeVideoId) {
             videoElement.onloadedmetadata = () => {
+                // Ensure preview shown at natural resolution so font sizes match
+                const vw = videoElement.videoWidth;
+                const vh = videoElement.videoHeight;
+                if (vw && vh) {
+                    videoElement.style.width = vw + 'px';
+                    videoElement.style.height = vh + 'px';
+                    const overlay = document.getElementById('node-video-buttons-overlay');
+                    if (overlay) {
+                        overlay.style.width = vw + 'px';
+                        overlay.style.height = vh + 'px';
+                    }
+                    const container = document.getElementById('node-video-preview-container');
+                    if (container) {
+                        container.style.width = vw + 'px';
+                        container.style.height = vh + 'px';
+                        container.style.overflow = 'auto';
+                    }
+                }
                 renderButtons(); 
                 handlePlayheadUpdate(); 
             };
