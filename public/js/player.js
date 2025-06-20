@@ -481,7 +481,10 @@ class IVSPlayer {
         // Apply the base styles
         // Ensure font and opacity are explicitly applied
         if (buttonStyle.fontFamily) buttonEl.style.fontFamily = buttonStyle.fontFamily;
-        if (buttonStyle.fontSize) buttonEl.style.fontSize = buttonStyle.fontSize;
+        if (buttonStyle.fontSize) {
+            buttonEl.style.fontSize = buttonStyle.fontSize;
+            buttonEl.style.lineHeight = buttonStyle.fontSize; // match height
+        }
         if (buttonStyle.opacity !== undefined) buttonEl.style.opacity = buttonStyle.opacity;
         Object.assign(buttonEl.style, buttonStyle);
 
