@@ -537,6 +537,7 @@ body.dark-mode .form-range::-webkit-slider-runnable-track {
 
 /* Node Editor Panel */
 #node-editor-panel {
+    background-color: rgba(0,0,0,0.9);
     background-color: #2f2f2f; /* Darker gray background */
     position: fixed;
     top: 0;
@@ -556,11 +557,10 @@ body.dark-mode .form-range::-webkit-slider-runnable-track {
 }
 
 .panel-container {
-    width: 90vw;
-    max-width: 1200px;
-    height: 90vh;
-    border-radius: 12px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+    width: 100vw;
+    height: 100vh;
+
+
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -648,14 +648,13 @@ body.light-mode hr.style-separator {
 
 .node-main-content {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     gap: 15px;
 }
 
 
 
 .button-sidebar {
-    flex: 0 0 350px;
     display: flex;
     flex-direction: column;
     gap: 10px;
