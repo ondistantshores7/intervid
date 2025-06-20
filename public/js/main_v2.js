@@ -1218,7 +1218,7 @@ document.addEventListener('DOMContentLoaded', () => {
         button.shadow.blur = buttonShadowBlur ? parseInt(buttonShadowBlur.value) : 4;
         button.shadow.spread = buttonShadowSpread ? parseInt(buttonShadowSpread.value) : 0;
         // Update opacity
-        if (buttonOpacitySlider) style.opacity = parseFloat(buttonOpacitySlider.value);
+        if (buttonOpacitySlider) style.opacity = buttonOpacitySlider.value.toString();
 
         // Apply shadow style directly to the button element for live preview
         const buttonElementForShadow = document.querySelector(`.video-overlay-button[data-button-id="${selectedButtonId}"]`);
@@ -1258,7 +1258,7 @@ document.addEventListener('DOMContentLoaded', () => {
             style.backgroundColor = document.getElementById('button-bgcolor-input').value || '#007bff';
         }
         if (!e || e.target === document.getElementById('button-opacity-slider')) {
-             style.opacity = parseFloat(buttonOpacitySlider.value);
+             style.opacity = buttonOpacitySlider.value.toString();
          }
          if (!e || e.target === document.getElementById('button-font-family-input')) {
             style.fontFamily = document.getElementById('button-font-family-input').value || 'Arial, sans-serif';
@@ -1290,8 +1290,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Apply style changes directly for live preview, then save.
         const buttonElement = document.querySelector(`.video-overlay-button[data-button-id="${selectedButtonId}"]`);
         if (buttonElement) {
-            Object.assign(buttonElement.style, style);
-        }
+             Object.assign(buttonElement.style, style);
+             // Explicitly set properties that sometimes don't update via Object.assign due to type casting
+             if (buttonOpacitySlider) buttonElement.style.opacity = buttonOpacitySlider.value;
+             const ffInput = document.getElementById('button-font-family-input');
+             if (ffInput) buttonElement.style.fontFamily = ffInput.value;
+         }
 
         // If a property that requires a full redraw was changed, render all buttons.
         // Otherwise, the direct style application above is sufficient.
