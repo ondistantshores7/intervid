@@ -144,6 +144,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const buttonShadowVOffset = getElement('button-shadow-v-offset');
     const buttonShadowBlur = getElement('button-shadow-blur');
     const buttonShadowSpread = getElement('button-shadow-spread');
+    // Opacity slider for button transparency
+    const buttonOpacitySlider = getElement('button-opacity-slider');
+    const buttonOpacityValue = getElement('button-opacity-value');
     const buttonShadowOpacityValue = getElement('button-shadow-opacity-value');
     const buttonShadowHOffsetValue = getElement('button-shadow-h-offset-value');
     const buttonShadowVOffsetValue = getElement('button-shadow-v-offset-value');
@@ -925,6 +928,7 @@ document.addEventListener('DOMContentLoaded', () => {
             animationType, animationDirection, animationDuration,
             document.getElementById('button-color-input'),
             document.getElementById('button-bgcolor-input'),
+            buttonOpacitySlider,
             document.getElementById('button-font-family-input'),
             document.getElementById('button-font-size-input'),
             document.getElementById('button-padding-input'),
@@ -966,7 +970,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Event listeners for shadow sliders to update their value displays
-        const shadowSliders = [
+        const slidersWithValueDisplays = [
+            { slider: buttonOpacitySlider, valueDisplay: buttonOpacityValue },
             { slider: buttonShadowOpacity, valueDisplay: buttonShadowOpacityValue },
             { slider: buttonShadowHOffset, valueDisplay: buttonShadowHOffsetValue },
             { slider: buttonShadowVOffset, valueDisplay: buttonShadowVOffsetValue },
@@ -974,7 +979,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { slider: buttonShadowSpread, valueDisplay: buttonShadowSpreadValue },
         ];
 
-        shadowSliders.forEach(({ slider, valueDisplay }) => {
+        slidersWithValueDisplays.forEach(({ slider, valueDisplay }) => {
             if (slider && valueDisplay) {
                 slider.addEventListener('input', () => {
                     valueDisplay.textContent = slider.value;
@@ -1212,6 +1217,8 @@ document.addEventListener('DOMContentLoaded', () => {
         button.shadow.vOffset = buttonShadowVOffset ? parseInt(buttonShadowVOffset.value) : 2;
         button.shadow.blur = buttonShadowBlur ? parseInt(buttonShadowBlur.value) : 4;
         button.shadow.spread = buttonShadowSpread ? parseInt(buttonShadowSpread.value) : 0;
+        // Update opacity
+        if (buttonOpacitySlider) style.opacity = parseFloat(buttonOpacitySlider.value);
 
         // Apply shadow style directly to the button element for live preview
         const buttonElementForShadow = document.querySelector(`.video-overlay-button[data-button-id="${selectedButtonId}"]`);
@@ -1250,7 +1257,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!e || e.target === document.getElementById('button-bgcolor-input')) {
             style.backgroundColor = document.getElementById('button-bgcolor-input').value || '#007bff';
         }
-        if (!e || e.target === document.getElementById('button-font-family-input')) {
+        if (!e || e.target === document.getElementById('button-opacity-slider')) {
+             style.opacity = parseFloat(buttonOpacitySlider.value);
+         }
+         if (!e || e.target === document.getElementById('button-font-family-input')) {
             style.fontFamily = document.getElementById('button-font-family-input').value || 'Arial, sans-serif';
         }
         if (!e || e.target === document.getElementById('button-font-size-input')) {
@@ -1349,6 +1359,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update style inputs
         document.getElementById('button-color-input').value = button.style.color || '#ffffff';
         document.getElementById('button-bgcolor-input').value = button.style.backgroundColor || '#007bff';
+         if (buttonOpacitySlider && buttonOpacityValue) {
+             buttonOpacitySlider.value = button.style.opacity !== undefined ? button.style.opacity : 1;
+             buttonOpacityValue.textContent = buttonOpacitySlider.value;
+         }
         document.getElementById('button-font-family-input').value = button.style.fontFamily || 'Arial, sans-serif';
         document.getElementById('button-font-size-input').value = button.style.fontSize ? 
             parseInt(button.style.fontSize) : 16;
