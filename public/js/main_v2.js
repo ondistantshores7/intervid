@@ -8,6 +8,34 @@ function generateId(prefix = '') {
 window.ADMIN_API_KEY = "dev-key-123";
 
 document.addEventListener('DOMContentLoaded', () => {
+    const signOutBtn = document.getElementById('sign-out-btn');
+
+    if (signOutBtn) {
+        signOutBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    // On successful logout, redirect to the login page
+                    window.location.href = '/login';
+                } else {
+                    console.error('Logout failed:', result.message);
+                    alert('Logout failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error during logout:', error);
+                alert('An error occurred during logout. Please try again.');
+            }
+        });
+    }
+
     let isInitialized = false;
     if (isInitialized) {
         console.warn('Initialization script called more than once. Aborting duplicate run.');
@@ -275,6 +303,15 @@ document.addEventListener('DOMContentLoaded', () => {
         nodeVideoButtonsOverlay.innerHTML = '';
         if (!node || !node.buttons) return;
 
+        const videoEl = document.getElementById('node-video-preview');
+        const naturalWidth = videoEl.videoWidth;
+        const displayWidth = videoEl.clientWidth;
+        let scaleFactor = 1;
+
+        if (naturalWidth > 0 && displayWidth > 0 && displayWidth < naturalWidth) {
+            scaleFactor = displayWidth / naturalWidth;
+        }
+
         const TIMELINE_BAR_HEIGHT = 20; // pixels
         const TIMELINE_BAR_GAP = 2;    // pixels
         const lanes = []; // Stores the end time of the last button in each lane
@@ -346,84 +383,98 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             // --- End of Timeline Bar Logic ---
 
-            // --- Existing logic for buttonPreview on video overlay ---
+            // --- Button Preview on Video Overlay ---
             const buttonPreview = document.createElement('button');
             buttonPreview.className = 'video-overlay-button';
             buttonPreview.dataset.buttonId = button.id;
 
-            // Apply base styles from button.style, position, and text/embed content
-            if (button.style) {
-                Object.assign(buttonPreview.style, button.style); // Apply user-defined styles
-            }
+            // Apply all saved styles first, as a base
+            const style = button.style || {};
+            Object.assign(buttonPreview.style, style);
+
+            // Set non-scalable base properties
             buttonPreview.style.position = 'absolute';
-            buttonPreview.style.left = button.position?.x || '40%'; // Default slightly different from player for editor
-            buttonPreview.style.top = button.position?.y || '80%';  // Default slightly different from player for editor
-            buttonPreview.style.pointerEvents = 'auto'; // Ensure buttons are interactive
+            buttonPreview.style.left = button.position?.x || '40%';
+            buttonPreview.style.top = button.position?.y || '80%';
+            buttonPreview.style.pointerEvents = 'auto';
             buttonPreview.style.boxSizing = 'border-box';
 
+            // Apply SCALED styles for pixel values
+            if (style.fontSize) {
+                const fontSizePx = parseFloat(style.fontSize);
+                if (!isNaN(fontSizePx)) buttonPreview.style.fontSize = (fontSizePx * scaleFactor) + 'px';
+            }
+            if (style.lineHeight) { // Also scale line-height for font consistency
+                const lineHeightPx = parseFloat(style.lineHeight);
+                if (!isNaN(lineHeightPx)) buttonPreview.style.lineHeight = (lineHeightPx * scaleFactor) + 'px';
+            }
+            if (style.borderRadius) {
+                const borderRadiusPx = parseFloat(style.borderRadius);
+                if (!isNaN(borderRadiusPx)) buttonPreview.style.borderRadius = (borderRadiusPx * scaleFactor) + 'px';
+            }
+            if (style.padding) {
+                const paddingValues = style.padding.split(' ').map(p => parseFloat(p));
+                if (paddingValues.every(p => !isNaN(p))) {
+                    buttonPreview.style.padding = paddingValues.map(p => (p * scaleFactor) + 'px').join(' ');
+                }
+            }
+             // Scale width and height ONLY if they are in 'px'
+            if (style.width && style.width.endsWith('px')) {
+                const widthPx = parseFloat(style.width);
+                if (!isNaN(widthPx)) buttonPreview.style.width = (widthPx * scaleFactor) + 'px';
+            } else {
+                buttonPreview.style.width = style.width; // Keep %, etc. as is
+            }
+            if (style.height && style.height.endsWith('px')) {
+                const heightPx = parseFloat(style.height);
+                if (!isNaN(heightPx)) buttonPreview.style.height = (heightPx * scaleFactor) + 'px';
+            } else {
+                buttonPreview.style.height = style.height; // Keep %, etc. as is
+            }
+
+            // Set content
             if (button.linkType === 'embed') {
-                buttonPreview.classList.add('embed-container'); // Should match CSS if specific styling needed
+                buttonPreview.classList.add('embed-container');
                 buttonPreview.innerHTML = button.embedCode || '';
             } else {
                 buttonPreview.textContent = button.text;
-                // For text buttons, apply flex for centering (will be managed by display block/none later)
-                buttonPreview.style.display = 'flex'; 
-                buttonPreview.style.alignItems = 'center';
-                buttonPreview.style.justifyContent = 'center';
             }
 
-            // Apply animation styles (mirroring player.js)
-            // Ensure button.animation object and its properties exist
-            if (button.animation && button.animation.type && button.animation.type !== 'none') {
-                const animClass = button.animation.type === 'slide'
-                    ? `anim-slide-${button.animation.direction || 'left'}`
-                    : 'anim-fade-in'; // Default to 'anim-fade-in'
-                
-                buttonPreview.classList.add(animClass);
-                buttonPreview.style.animationDuration = `${button.animation.duration || 1}s`;
-                // Set initial opacity for animation; CSS should define the 'from' state if it's opacity-based
-                // Or, rely on the animation class itself to define initial state (e.g., opacity: 0 in CSS for anim-fade-in)
-                // Forcing opacity to 0 here ensures it starts invisible if it's a fade-in type animation.
-                if (animClass.includes('fade')) {
-                     buttonPreview.style.opacity = '0'; 
-                }
-            } else {
-                // If no animation, ensure it's fully visible when display:block is set.
-                buttonPreview.style.opacity = '1';
-            }
-
-            // Apply shadow style (mirroring player.js)
-            // Assuming hexToRgba is available (e.g., defined globally or at the top of main_v2.js)
+            // Apply SCALED shadow
             if (button.shadow && button.shadow.enabled) {
-                const shadow = button.shadow;
-                if (typeof hexToRgba === 'function') { // Check if hexToRgba is defined
-                    const rgbaColor = hexToRgba(shadow.color || '#000000', shadow.opacity !== undefined ? shadow.opacity : 0.5);
-                    buttonPreview.style.boxShadow = `${shadow.hOffset || 2}px ${shadow.vOffset || 2}px ${shadow.blur || 4}px ${shadow.spread || 0}px ${rgbaColor}`;
-                }
+                const s = button.shadow;
+                const shadowColor = hexToRgba(s.color || '#000000', parseFloat(s.opacity) || 0.5);
+                const hOffset = (parseFloat(s.hOffset) || 0) * scaleFactor;
+                const vOffset = (parseFloat(s.vOffset) || 0) * scaleFactor;
+                const blur = (parseFloat(s.blur) || 5) * scaleFactor;
+                const spread = (parseFloat(s.spread) || 0) * scaleFactor;
+                buttonPreview.style.boxShadow = `${hOffset}px ${vOffset}px ${blur}px ${spread}px ${shadowColor}`;
             } else {
                 buttonPreview.style.boxShadow = 'none';
             }
 
-            // Recalculate shouldShow based on buttonStartTime and buttonDuration
-            const buttonStartTimeForOverlay = button.time || 0; // Use a separate variable to avoid conflict if original button.time was undefined
+            // Determine visibility
+            const buttonStartTimeForOverlay = button.time || 0;
             let buttonDurationForOverlay = getButtonEffectiveDuration(button, nodeVideoPreview.duration);
             if (buttonDurationForOverlay <= 0) buttonDurationForOverlay = 0.1;
-            const shouldShow = (nodeVideoPreview.currentTime >= buttonStartTimeForOverlay && nodeVideoPreview.currentTime < buttonStartTimeForOverlay + buttonDurationForOverlay) || button.id===selectedButtonId;
-
-            Object.assign(buttonPreview.style, button.style, { position: 'absolute', left: button.position.x, top: button.position.y, display: shouldShow?'block':'none' });
-
-            if (button.shadow && button.shadow.enabled) {
-                const shadow = button.shadow;
-                const rgbaColor = hexToRgba(shadow.color || '#000000', shadow.opacity !== undefined ? shadow.opacity : 0.5);
-                buttonPreview.style.boxShadow = `${shadow.hOffset || 2}px ${shadow.vOffset || 2}px ${shadow.blur || 4}px ${shadow.spread || 0}px ${rgbaColor}`;
-            } else {
-                buttonPreview.style.boxShadow = 'none';
+            const shouldShow = (nodeVideoPreview.currentTime >= buttonStartTimeForOverlay && nodeVideoPreview.currentTime < buttonStartTimeForOverlay + buttonDurationForOverlay) || button.id === selectedButtonId;
+            
+            // Set display and centering for text buttons
+            const displayValue = button.linkType === 'embed' ? 'block' : 'flex';
+            buttonPreview.style.display = shouldShow ? displayValue : 'none';
+            if (displayValue === 'flex') {
+                 buttonPreview.style.alignItems = 'center';
+                 buttonPreview.style.justifyContent = 'center';
             }
-            if(shouldShow && button.animation && button.animation.type!=='none'){
-                const animClass = button.animation.type==='slide'?`anim-slide-${button.animation.direction}`:`anim-${button.animation.type}`;
+
+            // Apply animation
+            if (shouldShow && button.animation && button.animation.type !== 'none') {
+                const animClass = button.animation.type === 'slide' ? `anim-slide-${button.animation.direction}` : `anim-${button.animation.type}`;
                 buttonPreview.classList.add(animClass);
                 buttonPreview.style.animationDuration = `${button.animation.duration}s`;
             }
+
+            // Add drag and resize handles
             buttonPreview.addEventListener('mousedown', startButtonDrag);
             buttonPreview.addEventListener('touchstart', startButtonDrag, { passive: false });
 
@@ -435,6 +486,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 handle.addEventListener('touchstart', startResize, { passive:false });
                 buttonPreview.appendChild(handle);
             });
+            
             nodeVideoButtonsOverlay.appendChild(buttonPreview);
             // --- End of buttonPreview logic ---
         });
@@ -740,24 +792,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Only set these for non-YouTube videos, as YouTube iframe handles its own events
         if (!youtubeVideoId) {
             videoElement.onloadedmetadata = () => {
-                // Ensure preview shown at natural resolution so font sizes match
-                const vw = videoElement.videoWidth;
-                const vh = videoElement.videoHeight;
-                if (vw && vh) {
-                    videoElement.style.width = vw + 'px';
-                    videoElement.style.height = vh + 'px';
-                    const overlay = document.getElementById('node-video-buttons-overlay');
-                    if (overlay) {
-                        overlay.style.width = vw + 'px';
-                        overlay.style.height = vh + 'px';
-                    }
-                    const container = document.getElementById('node-video-preview-container');
-                    if (container) {
-                        container.style.width = vw + 'px';
-                        container.style.height = vh + 'px';
-                        container.style.overflow = 'auto';
-                    }
-                }
+
                 renderButtons(); 
                 handlePlayheadUpdate(); 
             };
@@ -806,6 +841,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         renderButtons(); 
         if(nodeEditorPanel) nodeEditorPanel.classList.remove('hidden');
+
+        setTimeout(() => {
+            const videoEl = document.getElementById('node-video-preview');
+            if (videoEl) {
+                console.log(`Edit Node Video Dimensions: ${videoEl.clientWidth}w x ${videoEl.clientHeight}h`);
+            }
+        }, 100);
         closeButtonEditor(); 
 
         if (nodeIsStartNodeCheckbox) {
@@ -851,6 +893,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const setupEventListeners = () => {
+        // Re-render buttons on window resize to adjust for scaling
+        window.addEventListener('resize', renderButtons);
+
         newProjectBtn.addEventListener('click', () => {
             const name = prompt('Enter project name:');
             if (!name) return;
@@ -1770,6 +1815,13 @@ const finishConnectionDrag = (e) => {
     const openPreview = (startNodeId) => {
         previewOverlay.classList.remove('hidden');
         const player = new IVSPlayer(previewOverlay, currentProject, startNodeId);
+
+        setTimeout(() => {
+            const videoEl = document.getElementById('preview-video');
+            if (videoEl) {
+                console.log(`Preview Project Video Dimensions: ${videoEl.clientWidth}w x ${videoEl.clientHeight}h`);
+            }
+        }, 100);
         closePreviewBtn.onclick = () => {
             player.destroy();
             previewOverlay.classList.add('hidden');

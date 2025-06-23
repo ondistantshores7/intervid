@@ -528,11 +528,21 @@ body.dark-mode .form-range::-webkit-slider-runnable-track {
 }
 
 #node-video-preview-container {
-    position: relative; /* This is crucial for the button overlay to be positioned correctly */
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #000;
+    width: 85%; /* Slightly smaller than 100% */
+    margin: 0 auto; /* Center in the available space */
+    max-width: 1000px; /* Prevent it from getting too large */
 }
 
-#node-video-preview-container {
-    position: relative; /* This is crucial for the button overlay to be positioned correctly */
+#node-video-preview {
+    width: 100%; /* Fill the container width */
+    height: auto; /* Maintain aspect ratio automatically */
+    aspect-ratio: 16/9; /* Force 16:9 aspect ratio */
+    object-fit: contain; /* Ensure no cropping */
 }
 
 /* Node Editor Panel */
@@ -638,21 +648,21 @@ body.light-mode hr.style-separator {
 
 .panel-content {
     color:#fff;
-    flex-grow: 1;
-    padding: 20px;
-    overflow: auto; /* Allow horizontal and vertical scrolling */
-    display: flex; /* Use flexbox for layout */
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 350px; /* Flexible main content, fixed sidebar */
     gap: 20px;
-    align-items: flex-start; /* Align items to the top */
+    padding: 20px;
+    height: calc(100% - 60px); /* Adjust for header height */
+    overflow-y: auto; /* Make the entire panel scrollable */
 }
 
 .node-main-content {
     display: flex;
     flex-direction: column;
-    gap: 15px;
-    flex-shrink: 0; /* Prevent this column from shrinking */
+    gap: 15px; /* Space between video and timeline */
+    min-width: 0; /* Allow the container to shrink below its intrinsic width */
+    min-height: 0; /* Allow the container to shrink below its intrinsic height */
 }
-
 
 
 .button-sidebar {
@@ -661,8 +671,6 @@ body.light-mode hr.style-separator {
     gap: 10px;
     border-left: 1px solid var(--border-color);
     padding-left: 20px;
-    width: 350px; /* Set a fixed width */
-    flex-shrink: 0; /* Prevent sidebar from shrinking */
 }
 
 /* Timeline Scrubber */

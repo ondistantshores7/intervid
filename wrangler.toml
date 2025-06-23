@@ -11,6 +11,10 @@ database_id = "faf4e62c-4550-4af2-9a02-1f3d836d2577"
 
 [env.production]
 
+[env.production.vars]
+ADMIN_USERNAME = "ondistantshores"
+ADMIN_PASSWORD = "fif777!"
+
 
 [[env.production.d1_databases]]
 binding = "DB"
@@ -23,5 +27,5 @@ ADMIN_PASSWORD = ""  # Can be different for preview/staging
 
 # Local development overrides
 [vars]
-ADMIN_API_KEY = "dev-key-123"  # For local testing only
-ADMIN_PASSWORD = "dev-password"
+ADMIN_USERNAME = "ondistantshores"
+ADMIN_PASSWORD = "fif777!"

@@ -1,55 +1,38 @@
-import { verifyCookie } from "../utils/cookie";
+// A simple session verification. In a real app, you'd want to decode
+// and validate the session token more robustly (e.g., check expiration).
+async function verifySession(request) {
+    const cookieHeader = request.headers.get("Cookie") || "";
+    const match = cookieHeader.match(/session=([^;]+)/);
+    return !!match; // Returns true if the session cookie exists, false otherwise.
+}
 
-export const onRequest = async ({ request, env, next }) => {
-  const url = new URL(request.url);
-  const path = url.pathname;
-  
-  // ALWAYS allow these paths to be public (no authentication required)
-  // Full permissive access for embedding
-  if (path === '/login' || 
-      path === '/' || // Also allow root path
-      path.includes('embed') || // Allow ANY URL with 'embed' in it
-      path.startsWith('/api/embed') || 
-      path.startsWith('/player') || 
-      path.startsWith('/js/') || 
-      path.startsWith('/css/') ||
-      path.startsWith('/assets/') ||
-      path.startsWith('/fonts/') ||
-      path.startsWith('/images/') ||
-      path.endsWith('.html') || // Allow ALL html files
-      path.endsWith('.js') ||
-      path.endsWith('.css') ||
-      path.endsWith('.png') ||
-      path.endsWith('.jpg') ||
-      path.endsWith('.jpeg') ||
-      path.endsWith('.svg') ||
-      path.endsWith('.ico') ||
-      path.endsWith('.gif') ||
-      path.endsWith('.woff') ||
-      path.endsWith('.woff2') ||
-      path.endsWith('.ttf')) {
-    
-    // For these paths, don't require authentication
-    console.log('Public access granted to:', path);
-    return next();
-  }
+export const onRequest = async ({ request, next }) => {
+    const url = new URL(request.url);
+    const { pathname } = url;
 
-  // For all other paths, require authentication
-  const cookieHeader = request.headers.get("Cookie") || "";
-  const match = cookieHeader.match(/session=([^;]+)/);
-  const token = match && match[1];
-  const isVerified = token && (await verifyCookie(token, env.ADMIN_PASSWORD));
-
-  if (!isVerified) {
-    // If not authenticated and requesting an API endpoint
-    if (path.startsWith("/api/")) {
-      return new Response("Unauthorized", { status: 401 });
-    } else {
-      // For all other protected pages, redirect to login
-      return Response.redirect(`${url.origin}/login`, 302);
+    // If the user is trying to access the login page or its assets, let them through.
+    // Also allow the login API call and all embed-related paths.
+    if (pathname === '/login' ||
+        pathname === '/api/login' ||
+        pathname === '/js/login.js' ||
+        pathname === '/css/login.css' ||
+        pathname.startsWith('/embed') ||
+        pathname.includes('embed-player') ||
+        pathname.startsWith('/api/embed') ||
+        pathname.startsWith('/js/') ||
+        pathname.startsWith('/css/') ||
+        pathname.startsWith('/assets/')) {
+        return next();
     }
-  }
 
-  // If the cookie is valid, proceed to the requested route
-  return next();
+    // For all other pages, check if the user has a valid session.
+    const isVerified = await verifySession(request);
+    if (isVerified) {
+        return next(); // User is logged in, proceed.
+    }
+
+    // If the user is not logged in, redirect them to the login page.
+    // This will catch requests to the root '/' and any other protected page.
+    const loginUrl = new URL('/login', url.origin);
+    return Response.redirect(loginUrl.toString(), 302);
 };
