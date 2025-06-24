@@ -1216,13 +1216,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const style = button.style;
 
         // Track if we need to update the button's dimensions/position
+        const fontSizeInputEl = document.getElementById('button-font-size-input');
+        const paddingInputEl = document.getElementById('button-padding-input');
+
         const needsFullRender = e && (
             e.target === buttonPosXInput ||
             e.target === buttonPosYInput ||
             e.target === buttonWidthInput ||
             e.target === buttonHeightInput ||
             e.target === buttonTextInput ||
-            e.target === buttonTimeInput
+            e.target === buttonTimeInput ||
+            e.target === fontSizeInputEl ||
+            e.target === paddingInputEl
         );
 
         // Always update basic properties
@@ -1354,20 +1359,26 @@ document.addEventListener('DOMContentLoaded', () => {
         style.justifyContent = 'center';
         style.position = 'absolute';
 
+        // Persist changes before potentially re-rendering
         saveProjects();
 
-        // Apply style changes directly for live preview, then save.
-        const buttonElement = document.querySelector(`.video-overlay-button[data-button-id="${selectedButtonId}"]`);
-        if (buttonElement) {
-             Object.assign(buttonElement.style, style);
-             // Explicitly set properties that sometimes don't update via Object.assign due to type casting
-             if (buttonOpacitySlider) buttonElement.style.opacity = buttonOpacitySlider.value;
-             const ffInput = document.getElementById('button-font-family-input');
-             if (ffInput) buttonElement.style.fontFamily = ffInput.value;
-         }
+        // If a full redraw is needed (fontSize, padding, position, etc.), do it now and return early
+        if (needsFullRender) {
+            renderButtons();
+            return; // Avoid direct style assignment to prevent double-scaling
+        }
 
-        // If a property that requires a full redraw was changed, render all buttons.
-        // Otherwise, the direct style application above is sufficient.
+        // Otherwise, apply style changes directly for snappier live preview.
+        const buttonElement = document.querySelector(`.video-overlay-button[data-button-id="${selectedButtonId}"]`);
+        if (!needsFullRender && buttonElement) {
+            Object.assign(buttonElement.style, style);
+            // Explicitly set properties that sometimes don't update via Object.assign due to type casting
+            if (buttonOpacitySlider) buttonElement.style.opacity = buttonOpacitySlider.value;
+            const ffInput = document.getElementById('button-font-family-input');
+            if (ffInput) buttonElement.style.fontFamily = ffInput.value;
+        }
+
+        // Always re-render if a full redraw is needed (e.g., fontSize / padding changes)
         if (needsFullRender) {
             renderButtons();
         }
