@@ -14,6 +14,8 @@ database_id = "faf4e62c-4550-4af2-9a02-1f3d836d2577"
 [env.production.vars]
 ADMIN_USERNAME = "ondistantshores"
 ADMIN_PASSWORD = "fif777!"
+GUEST_USERNAME = "guest"
+GUEST_PASSWORD = "guest7!"
 
 
 [[env.production.d1_databases]]
@@ -29,3 +31,5 @@ ADMIN_PASSWORD = ""  # Can be different for preview/staging
 [vars]
 ADMIN_USERNAME = "ondistantshores"
 ADMIN_PASSWORD = "fif777!"
+GUEST_USERNAME = "guest"
+GUEST_PASSWORD = "guest7!"

@@ -11,16 +11,19 @@ export const onRequestPost = async ({ request, env }) => {
     try {
         const { username, password } = await request.json();
 
-        // Get credentials from environment variables
-        const storedUsername = env.ADMIN_USERNAME;
-        const storedPassword = env.ADMIN_PASSWORD;
+                // Build an array of allowed credential pairs (at least admin must exist)
+        const credentialPairs = [
+            { username: env.ADMIN_USERNAME, password: env.ADMIN_PASSWORD },
+            { username: env.GUEST_USERNAME, password: env.GUEST_PASSWORD },
+        ].filter(c => c.username && c.password);
 
-        if (!storedUsername || !storedPassword) {
-            return new Response("Administrator credentials are not configured.", { status: 500 });
+        if (credentialPairs.length === 0) {
+            return new Response("No valid credentials configured.", { status: 500 });
         }
 
-        // Validate credentials
-        if (username === storedUsername && password === storedPassword) {
+        const isValid = credentialPairs.some(c => c.username === username && c.password === password);
+
+        if (isValid) {
             const sessionToken = await createSession(username);
 
             // Set a secure, HttpOnly cookie
