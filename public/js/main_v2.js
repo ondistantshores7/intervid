@@ -8,10 +8,11 @@ function generateId(prefix = '') {
 window.ADMIN_API_KEY = "dev-key-123";
 
 document.addEventListener('DOMContentLoaded', () => {
-    const signOutBtn = document.getElementById('sign-out-btn');
+    const signOutButtons = document.querySelectorAll('.sign-out-btn');
 
-    if (signOutBtn) {
-        signOutBtn.addEventListener('click', async () => {
+    const attachLogoutHandler = (btn) => {
+        if(!btn) return;
+        btn.addEventListener('click', async () => {
             try {
                 const response = await fetch('/api/logout', {
                     method: 'POST',
@@ -34,7 +35,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('An error occurred during logout. Please try again.');
             }
         });
-    }
+    };
+
+    // Attach to all sign-out buttons (editor + dashboard)
+    signOutButtons.forEach(attachLogoutHandler);
 
     let isInitialized = false;
     if (isInitialized) {
