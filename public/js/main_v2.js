@@ -399,14 +399,12 @@ document.addEventListener('DOMContentLoaded', () => {
             buttonPreview.style.pointerEvents = 'auto';
             buttonPreview.style.boxSizing = 'border-box';
 
-            // Apply SCALED styles for pixel values
+            // Font size and line-height: use raw values so Edit Node matches preview/export
             if (style.fontSize) {
-                const fontSizePx = parseFloat(style.fontSize);
-                if (!isNaN(fontSizePx)) buttonPreview.style.fontSize = (fontSizePx * scaleFactor) + 'px';
+                buttonPreview.style.fontSize = style.fontSize;
             }
-            if (style.lineHeight) { // Also scale line-height for font consistency
-                const lineHeightPx = parseFloat(style.lineHeight);
-                if (!isNaN(lineHeightPx)) buttonPreview.style.lineHeight = (lineHeightPx * scaleFactor) + 'px';
+            if (style.lineHeight) {
+                buttonPreview.style.lineHeight = style.lineHeight;
             }
             if (style.borderRadius) {
                 const borderRadiusPx = parseFloat(style.borderRadius);
