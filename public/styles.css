@@ -926,6 +926,19 @@ body.dark-mode .node-thumbnail-placeholder {
     box-shadow: 0 0 10px rgba(0, 123, 255, 0.5); /* Optional: add a glow */
 }
 
+.video-overlay-button {
+    cursor: pointer; /* Default pointer cursor */
+}
+
+.video-overlay-button:active {
+    cursor: grabbing; /* Cursor for when the button is being clicked/dragged */
+}
+
+.video-overlay-button:hover {
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+    /* transform: scale(1.02); */
+}
+
 #connections-svg {
     position:absolute;
     top:0;
