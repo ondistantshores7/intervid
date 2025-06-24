@@ -157,6 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewOverlay = getElement('preview-overlay');
     const closePreviewBtn = getElement('close-preview-btn');
     const projectSearchInput = getElement('project-search');
+    const projectSortSelect = getElement('project-sort');
     const themeToggle = document.getElementById('theme-toggle');
     const connectionsSvg = document.getElementById('connections-svg');
     const animateOutCheckbox = getElement('animate-out-checkbox');
@@ -201,7 +202,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ...project,
             startNodeId: project.startNodeId || null, // Ensure startNodeId exists, default to null
             videos: project.videos || [], // Ensure videos array exists
-            connections: project.connections || [] // Ensure connections array exists
+            connections: project.connections || [], // Ensure connections array exists
+            lastEdited: project.lastEdited || Date.now() // Ensure lastEdited timestamp
         })).map(project => {
             // Ensure all buttons have a duration
             if (project.videos) {
@@ -218,20 +220,32 @@ document.addEventListener('DOMContentLoaded', () => {
             return project;
         });
     };
-    const saveProjects = () => localStorage.setItem('interactive-video-projects', JSON.stringify(projects));
+    const saveProjects = () => {
+        // Update lastEdited timestamp for current project if applicable
+        if (currentProject) {
+            currentProject.lastEdited = Date.now();
+        }
+        localStorage.setItem('interactive-video-projects', JSON.stringify(projects));
+    };
 
     const renderProjects = (filter='') => {
+        const sortBy = projectSortSelect ? projectSortSelect.value : 'name';
         const container = getElement('projects-list');
         if(!container) return;
         container.innerHTML='';
         const list = [...projects];
-        list.sort((a,b)=>a.name.localeCompare(b.name));
+        list.sort((a,b)=>{
+            if(sortBy==='edited'){
+                return (b.lastEdited||0) - (a.lastEdited||0); // newest first
+            }
+            return (a.name||'').localeCompare(b.name||'');
+        });
         list.filter(p=>p.name.toLowerCase().includes(filter.toLowerCase())).forEach(project=>{
             const card=document.createElement('div');
             card.className='project-card';
-            card.innerHTML=`<h3>${project.name}</h3><p>${project.videos.length} videos</p>`;
+            card.innerHTML=`<h3>${project.name}</h3><p>${project.videos.length} videos</p><p class="project-date">Edited: ${project.lastEdited ? new Date(project.lastEdited).toLocaleDateString() : '—'}</p>`;
             const editBtn=document.createElement('button');editBtn.textContent='Edit';editBtn.onclick=()=>navigateTo('editor',project.id);
-            const dupBtn=document.createElement('button');dupBtn.textContent='Duplicate';dupBtn.onclick=()=>{const copy=JSON.parse(JSON.stringify(project));copy.id=generateId('project-');copy.name=project.name+' copy';projects.push(copy);saveProjects();renderProjects(projectSearchInput.value);} ;
+            const dupBtn=document.createElement('button');dupBtn.textContent='Duplicate';dupBtn.onclick=()=>{const copy=JSON.parse(JSON.stringify(project));copy.id=generateId('project-');copy.name=project.name+' copy';copy.lastEdited=Date.now();projects.push(copy);saveProjects();renderProjects(projectSearchInput.value);} ;
             const delBtn=document.createElement('button');delBtn.textContent='Delete';delBtn.className='danger';delBtn.onclick=()=>{if(confirm('Delete project?')){projects=projects.filter(p=>p.id!==project.id);saveProjects();renderProjects(projectSearchInput.value);} };
             card.append(editBtn,dupBtn,delBtn);
             container.appendChild(card);
@@ -897,7 +911,8 @@ document.addEventListener('DOMContentLoaded', () => {
         newProjectBtn.addEventListener('click', () => {
             const name = prompt('Enter project name:');
             if (!name) return;
-            const project = { id: generateId('project-'), name, videos: [], connections: [] };
+            const project = { id: generateId('project-'), name, videos: [], connections: [], lastEdited: Date.now() };
+            project.lastEdited = Date.now();
             projects.push(project);
             saveProjects();
             renderProjects();
@@ -1116,6 +1131,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (nodeVideoPreview) nodeVideoPreview.addEventListener('timeupdate', handlePlayheadUpdate);
         if (projectSearchInput) projectSearchInput.addEventListener('input', e => renderProjects(e.target.value));
+        if (projectSortSelect) projectSortSelect.addEventListener('change', ()=>renderProjects(projectSearchInput.value));
 
         if(duplicateNodeBtn) duplicateNodeBtn.addEventListener('click', duplicateSelectedNode);
         if(deleteNodeBtn) deleteNodeBtn.addEventListener('click', deleteSelectedNode);

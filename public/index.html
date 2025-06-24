@@ -31,7 +31,13 @@
         </header>
         <div id="projects-section">
             <h2>My Projects</h2>
-            <input type="text" id="project-search" placeholder="Search projects..." style="margin-bottom:10px;max-width:300px;" />
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+                <input type="text" id="project-search" placeholder="Search projects..." style="max-width:300px;" />
+                <select id="project-sort" style="padding:6px;">
+                    <option value="name">Sort: Name (A–Z)</option>
+                    <option value="edited">Sort: Last Edited</option>
+                </select>
+            </div>
             <div id="projects-list" class="projects-grid"></div>
             <button id="new-project-btn" class="primary-btn" style="margin-top:20px;">+ New Project</button>
         </div>
