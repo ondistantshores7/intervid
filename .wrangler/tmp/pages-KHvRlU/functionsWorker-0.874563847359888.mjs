@@ -1,7 +1,7 @@
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
-// ../.wrangler/tmp/bundle-ryvzru/checked-fetch.js
+// ../.wrangler/tmp/bundle-9jp617/checked-fetch.js
 var urls = /* @__PURE__ */ new Set();
 function checkURL(request, init) {
   const url = request instanceof URL ? request : new URL(
@@ -101,12 +101,15 @@ __name(createSession, "createSession");
 var onRequestPost = /* @__PURE__ */ __name(async ({ request, env }) => {
   try {
     const { username, password } = await request.json();
-    const storedUsername = env.ADMIN_USERNAME;
-    const storedPassword = env.ADMIN_PASSWORD;
-    if (!storedUsername || !storedPassword) {
-      return new Response("Administrator credentials are not configured.", { status: 500 });
+    const credentialPairs = [
+      { username: env.ADMIN_USERNAME, password: env.ADMIN_PASSWORD },
+      { username: env.GUEST_USERNAME, password: env.GUEST_PASSWORD }
+    ].filter((c) => c.username && c.password);
+    if (credentialPairs.length === 0) {
+      return new Response("No valid credentials configured.", { status: 500 });
     }
-    if (username === storedUsername && password === storedPassword) {
+    const isValid = credentialPairs.some((c) => c.username === username && c.password === password);
+    if (isValid) {
       const sessionToken = await createSession(username);
       const cookie = `session=${sessionToken}; HttpOnly; Secure; Path=/; SameSite=Strict; Max-Age=86400`;
       return new Response(JSON.stringify({ success: true, message: "Login successful" }), {
@@ -1351,7 +1354,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// ../.wrangler/tmp/bundle-ryvzru/middleware-insertion-facade.js
+// ../.wrangler/tmp/bundle-9jp617/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -1383,7 +1386,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// ../.wrangler/tmp/bundle-ryvzru/middleware-loader.entry.ts
+// ../.wrangler/tmp/bundle-9jp617/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;
