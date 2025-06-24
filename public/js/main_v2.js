@@ -1499,8 +1499,6 @@ document.addEventListener('DOMContentLoaded', () => {
             shadowOptionsContainer.style.display = shadow.enabled ? 'grid' : 'none';
         }
 
-        renderButtons(); // Re-render to reflect selection change in the list
-
         // Toggle direction group based on animation type
         document.getElementById('anim-direction-group').style.display = 
             (button.animation.type === 'slide') ? 'block' : 'none';
