@@ -393,6 +393,8 @@ body.dark-mode .button:hover:not(:disabled) {
 /* Primary Buttons (e.g., New Project) */
 .primary-btn {
     color: #fff; /* Default text color for primary buttons */
+    background-color: var(--primary-light);
+    border-color: var(--primary-light);
 }
 body.light-mode .primary-btn {
     background-color: var(--primary-light);
@@ -449,8 +451,10 @@ body.dark-mode #back-to-dashboard-btn:hover:not(:disabled) {
 
 /* Danger Buttons (Delete buttons) */
 .danger,
-.danger-btn /* Adding .danger-btn as an alias if needed */ {
-    color: #fff; /* Default text for danger buttons */
+.danger-btn {
+    color: #fff;
+    background-color: #dc3545;
+    border-color: #dc3545;
 }
 body.light-mode .danger,
 body.light-mode .danger-btn {
