@@ -79,6 +79,7 @@
 
 .video-overlay-button {
     font-size: inherit;
+    white-space: pre-wrap;
     line-height: normal;
     pointer-events: auto;
     cursor: grab;
