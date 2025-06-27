@@ -661,6 +661,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         // play out animation
                         const outClass = getOutAnimClass(buttonData);
                         if (outClass && !btn.classList.contains(outClass)) {
+                            // remove any in-animation classes to avoid transform conflicts
+                            btn.classList.remove('anim-slide-left','anim-slide-right','anim-slide-top','anim-slide-bottom','anim-fade','anim-fade-in');
                             btn.classList.add(outClass);
                             btn.style.animationDuration = `${animDurationSec}s`;
                             // force reflow
