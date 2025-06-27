@@ -1359,7 +1359,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (!e || e.target === document.getElementById('button-font-size-input')) {
             const fontSize = parseInt(document.getElementById('button-font-size-input').value) || 16;
-            style.fontSize = `${Math.max(8, Math.min(fontSize, 72))}px`;
+            style.fontSize = `${Math.max(8, Math.min(fontSize, 300))}px`;
         }
         if (!e || e.target === document.getElementById('button-padding-input')) {
             const padding = parseInt(document.getElementById('button-padding-input').value) || 10;
