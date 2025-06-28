@@ -144,6 +144,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const buttonTargetUrl = getElement('button-target-url');
     const deleteButtonBtn = getElement('delete-button-btn');
     const duplicateButtonBtn = getElement('duplicate-button-btn');
+const alignCenterBtn = getElement('align-center-btn');
+const distributeVerticalBtn = getElement('distribute-vertical-btn');
 
     const buttonPosXInput = getElement('button-pos-x-input');
     const buttonPosYInput = getElement('button-pos-y-input');
@@ -1120,6 +1122,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (duplicateButtonBtn) {
             duplicateButtonBtn.addEventListener('click', duplicateSelectedButton);
         }
+        if (alignCenterBtn) {
+            alignCenterBtn.addEventListener('click', () => alignButtonsInWindow('horizontal'));
+        }
+        if (distributeVerticalBtn) {
+            distributeVerticalBtn.addEventListener('click', () => alignButtonsInWindow('vertical'));
+        }
 
         if (previewProjectBtn) previewProjectBtn.addEventListener('click', () => {
             if (!currentProject || currentProject.videos.length === 0) {
@@ -2079,6 +2087,55 @@ const finishConnectionDrag = (e) => {
         console.log('Project state restored via Undo. New currentProject:', deepCopy(currentProject));
         console.log('Undo stack size:', undoStack.length);
     };
+
+    // Alignment helper
+    function alignButtonsInWindow(mode) {
+        if (!selectedNodeId || !selectedButtonId || !currentProject) return;
+        const node = currentProject.videos.find(v => v.id === selectedNodeId);
+        if (!node || !node.buttons) return;
+        const selectedBtn = node.buttons.find(b => b.id === selectedButtonId);
+        if (!selectedBtn) return;
+        const windowStart = (selectedBtn.time || 0) - 2.5;
+        const windowEnd   = (selectedBtn.time || 0) + 2.5;
+        const buttonsInWindow = node.buttons.filter(b => {
+            const t = b.time || 0;
+            return t >= windowStart && t <= windowEnd;
+        });
+        if (buttonsInWindow.length === 0) return;
+
+        pushToUndoStack();
+
+        if (mode === 'horizontal') {
+            buttonsInWindow.forEach(btn => {
+                let widthPct = 15;
+                if (btn.style && btn.style.width && btn.style.width.toString().includes('%')) {
+                    widthPct = parseFloat(btn.style.width);
+                }
+                const newX = (100 - widthPct) / 2;
+                if (!btn.position) btn.position = { x: '0%', y: '0%' };
+                btn.position.x = newX.toFixed(2) + '%';
+            });
+        } else if (mode === 'vertical') {
+            const sorted = buttonsInWindow.slice().sort((a,b) => {
+                const ya = parseFloat(a.position?.y || '0');
+                const yb = parseFloat(b.position?.y || '0');
+                return ya - yb;
+            });
+            const n = sorted.length;
+            if (n > 1) {
+                for (let i = 0; i < n; i++) {
+                    const newY = ((i + 1) / (n + 1)) * 100;
+                    const btn = sorted[i];
+                    if (!btn.position) btn.position = { x: '0%', y: '0%' };
+                    btn.position.y = newY.toFixed(2) + '%';
+                }
+            }
+        }
+
+        saveProjects();
+        renderButtons();
+        selectButton(selectedButtonId);
+    }
 
     init();
 });
