@@ -2123,7 +2123,9 @@ const finishConnectionDrag = (e) => {
                 for (let i = 0; i < n; i++) {
                     const newY = ((i + 1) / (n + 1)) * 100;
                     const btn = sorted[i];
-                    if (!btn.position) btn.position = { x: '0%', y: '0%' };
+                    const currentX = btn.position?.x ?? '40%';
+                    if (!btn.position) btn.position = { x: currentX, y: '0%' };
+                    btn.position.x = currentX; // preserve original horizontal placement
                     btn.position.y = newY.toFixed(2) + '%';
                 }
             }
