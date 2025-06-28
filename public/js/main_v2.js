@@ -2106,14 +2106,11 @@ const finishConnectionDrag = (e) => {
         pushToUndoStack();
 
         if (mode === 'horizontal') {
+            // Align all buttons to share the same horizontal baseline (y-coordinate)
+            const baselineY = parseFloat(selectedBtn.position?.y || '50');
             buttonsInWindow.forEach(btn => {
-                let widthPct = 15;
-                if (btn.style && btn.style.width && btn.style.width.toString().includes('%')) {
-                    widthPct = parseFloat(btn.style.width);
-                }
-                const newX = (100 - widthPct) / 2;
                 if (!btn.position) btn.position = { x: '0%', y: '0%' };
-                btn.position.x = newX.toFixed(2) + '%';
+                btn.position.y = baselineY.toFixed(2) + '%';
             });
         } else if (mode === 'vertical') {
             const sorted = buttonsInWindow.slice().sort((a,b) => {
