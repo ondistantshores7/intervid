@@ -2114,28 +2114,34 @@ const finishConnectionDrag = (e) => {
             });
         } else if (mode === 'spread') {
             // Evenly spread buttons across X (horizontal) while preserving their Y positions
-            const sorted = buttonsInWindow.slice().sort((a,b) => {
+            const sorted = buttonsInWindow.slice().sort((a, b) => {
                 const xa = parseFloat(a.position?.x || '0');
                 const xb = parseFloat(b.position?.x || '0');
                 return xa - xb;
             });
             const n = sorted.length;
             if (n > 0) {
+                // Collect widths and compute uniform gap so that gaps on edges and between buttons are equal
+                const widths = sorted.map(btn => {
+                    let w = 15;
+                    if (btn.style && btn.style.width && btn.style.width.toString().includes('%')) {
+                        w = parseFloat(btn.style.width);
+                    }
+                    return w;
+                });
+                const totalWidth = widths.reduce((sum, w) => sum + w, 0);
+                let gap = (100 - totalWidth) / (n + 1);
+                if (gap < 0) gap = 0; // Not enough space, fall back to 0 gap (still avoids overlap)
+
+                let currentX = gap;
                 for (let i = 0; i < n; i++) {
                     const btn = sorted[i];
-                    // Determine button width percentage (default 15)
-                    let widthPct = 15;
-                    if (btn.style && btn.style.width && btn.style.width.toString().includes('%')) {
-                        widthPct = parseFloat(btn.style.width);
-                    }
-                    const centerX = ((i + 1) / (n + 1)) * 100; // center position
-                    let newX = centerX - widthPct / 2;
-                    newX = Math.max(0, Math.min(newX, 100 - widthPct));
+                    const widthPct = widths[i];
 
-                    if (!btn.position) {
-                        btn.position = { x: '0%', y: '0%' };
-                    }
-                    btn.position.x = newX.toFixed(2) + '%';
+                    if (!btn.position) btn.position = { x: '0%', y: '0%' };
+                    btn.position.x = currentX.toFixed(2) + '%';
+
+                    currentX += widthPct + gap;
                 }
             }
         }
