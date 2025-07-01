@@ -1188,12 +1188,12 @@ body.dark-mode #connections-svg path {
 
 .video-overlay-button,
 .interactive-button {
-    transition: transform 0.2s ease;
+    transition: transform 0.2s ease !important;
 }
 
 .video-overlay-button:hover,
 .interactive-button:hover {
-    transform: scale(1.08);
+    transform: scale(1.15) !important;
 }
 
 .interactive-button-preview.dragging {
