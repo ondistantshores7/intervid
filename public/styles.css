@@ -1179,6 +1179,19 @@ body.dark-mode #connections-svg path {
     border-radius: 5px;
     font-size: 16px;
     white-space: nowrap;
+    transition: transform 0.2s ease;
+}
+
+.interactive-button-preview:hover {
+    transform: translate(-50%, -50%) scale(1.05);
+}
+
+.video-overlay-button {
+    transition: transform 0.2s ease;
+}
+
+.video-overlay-button:hover {
+    transform: scale(1.05);
 }
 
 .interactive-button-preview.dragging {
