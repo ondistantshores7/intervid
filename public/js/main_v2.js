@@ -145,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const deleteButtonBtn = getElement('delete-button-btn');
     const duplicateButtonBtn = getElement('duplicate-button-btn');
 const alignCenterBtn = getElement('align-center-btn');
-const distributeVerticalBtn = getElement('distribute-vertical-btn');
+const spreadOutBtn = getElement('spread-out-btn');
 
     const buttonPosXInput = getElement('button-pos-x-input');
     const buttonPosYInput = getElement('button-pos-y-input');
@@ -1125,8 +1125,8 @@ const distributeVerticalBtn = getElement('distribute-vertical-btn');
         if (alignCenterBtn) {
             alignCenterBtn.addEventListener('click', () => alignButtonsInWindow('horizontal'));
         }
-        if (distributeVerticalBtn) {
-            distributeVerticalBtn.addEventListener('click', () => alignButtonsInWindow('vertical'));
+        if (spreadOutBtn) {
+            spreadOutBtn.addEventListener('click', () => alignButtonsInWindow('spread'));
         }
 
         if (previewProjectBtn) previewProjectBtn.addEventListener('click', () => {
@@ -2112,21 +2112,30 @@ const finishConnectionDrag = (e) => {
                 if (!btn.position) btn.position = { x: '0%', y: '0%' };
                 btn.position.y = baselineY.toFixed(2) + '%';
             });
-        } else if (mode === 'vertical') {
+        } else if (mode === 'spread') {
+            // Evenly spread buttons across X (horizontal) while preserving their Y positions
             const sorted = buttonsInWindow.slice().sort((a,b) => {
-                const ya = parseFloat(a.position?.y || '0');
-                const yb = parseFloat(b.position?.y || '0');
-                return ya - yb;
+                const xa = parseFloat(a.position?.x || '0');
+                const xb = parseFloat(b.position?.x || '0');
+                return xa - xb;
             });
             const n = sorted.length;
-            if (n > 1) {
+            if (n > 0) {
                 for (let i = 0; i < n; i++) {
-                    const newY = ((i + 1) / (n + 1)) * 100;
                     const btn = sorted[i];
-                    const currentX = btn.position?.x ?? '40%';
-                    if (!btn.position) btn.position = { x: currentX, y: '0%' };
-                    btn.position.x = currentX; // preserve original horizontal placement
-                    btn.position.y = newY.toFixed(2) + '%';
+                    // Determine button width percentage (default 15)
+                    let widthPct = 15;
+                    if (btn.style && btn.style.width && btn.style.width.toString().includes('%')) {
+                        widthPct = parseFloat(btn.style.width);
+                    }
+                    const centerX = ((i + 1) / (n + 1)) * 100; // center position
+                    let newX = centerX - widthPct / 2;
+                    newX = Math.max(0, Math.min(newX, 100 - widthPct));
+
+                    if (!btn.position) {
+                        btn.position = { x: '0%', y: '0%' };
+                    }
+                    btn.position.x = newX.toFixed(2) + '%';
                 }
             }
         }
