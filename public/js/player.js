@@ -454,12 +454,7 @@ class IVSPlayer {
         buttonEl.className = 'video-overlay-button';
         // Ensure gentle hover scale animation even if external CSS not loaded
         buttonEl.style.transition = 'transform 0.3s cubic-bezier(0.25,0.8,0.25,1)';
-        buttonEl.addEventListener('mouseenter', () => {
-            buttonEl.style.transform = 'scale(1.1)';
-        });
-        buttonEl.addEventListener('mouseleave', () => {
-            buttonEl.style.transform = '';
-        });
+        // Hover pulse handled by CSS
         buttonEl.dataset.buttonId = buttonData.id;
 
         // Apply base styles

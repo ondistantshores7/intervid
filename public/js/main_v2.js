@@ -418,8 +418,8 @@ const spreadOutBtn = getElement('spread-out-btn');
             buttonPreview.className = 'video-overlay-button';
             // Ensure hover scale in preview overlay regardless of CSS precedence
             buttonPreview.style.transition = 'transform 0.3s cubic-bezier(0.25,0.8,0.25,1)';
-            buttonPreview.addEventListener('mouseenter', ()=>{buttonPreview.style.transform='scale(1.1)';});
-            buttonPreview.addEventListener('mouseleave', ()=>{buttonPreview.style.transform='';});
+            // hover pulse handled by CSS
+            
             buttonPreview.dataset.buttonId = button.id;
 
             // Apply all saved styles first, as a base

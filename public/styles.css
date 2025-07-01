@@ -1167,6 +1167,16 @@ body.dark-mode #connections-svg path {
     white-space: nowrap; /* Ensure text stays on one line */
 }
 
+@keyframes pulseScale {
+    0%,100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+@keyframes pulseOverlay {
+    0%,100% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.1); }
+}
+
 .interactive-button-preview {
     position: absolute;
     cursor: move;
@@ -1183,7 +1193,7 @@ body.dark-mode #connections-svg path {
 }
 
 .interactive-button-preview:hover {
-    transform: translate(-50%, -50%) scale(1.1);
+    animation: pulseOverlay 0.8s cubic-bezier(0.25,0.8,0.25,1) infinite;
 }
 
 .video-overlay-button,
@@ -1193,7 +1203,7 @@ body.dark-mode #connections-svg path {
 
 .video-overlay-button:hover,
 .interactive-button:hover {
-    transform: scale(1.1) !important;
+    animation: pulseScale 0.8s cubic-bezier(0.25,0.8,0.25,1) infinite;
 }
 
 .interactive-button-preview.dragging {
