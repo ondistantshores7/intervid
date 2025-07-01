@@ -877,7 +877,19 @@ const spreadOutBtn = getElement('spread-out-btn');
         renderButtons(); 
         if(nodeEditorPanel) nodeEditorPanel.classList.remove('hidden');
         // Refresh import dropdown for this node
-        if (typeof populateImportDropdown === 'function') populateImportDropdown();
+        if (importButtonsSelect) {
+            importButtonsSelect.innerHTML = '<option value="">Import Buttons From Node...</option>';
+            if (currentProject) {
+                currentProject.videos
+                  .filter(v => v.id !== selectedNodeId && v.buttons && v.buttons.length > 0)
+                  .forEach(v => {
+                      const opt = document.createElement('option');
+                      opt.value = v.id;
+                      opt.textContent = v.name;
+                      importButtonsSelect.appendChild(opt);
+                  });
+            }
+        }
 
         setTimeout(() => {
             const videoEl = document.getElementById('node-video-preview');
