@@ -133,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const timelineMarkers = getElement('timeline-markers');
     const buttonsList = getElement('buttons-list');
     const addButtonBtn = getElement('add-button-btn');
+    const importButtonsSelect = getElement('import-buttons-select');
     const buttonEditorPanel = getElement('button-editor-panel');
     const buttonTextInput = getElement('button-text-input');
     const buttonTimeInput = getElement('button-time-input');
@@ -875,6 +876,8 @@ const spreadOutBtn = getElement('spread-out-btn');
         }
         renderButtons(); 
         if(nodeEditorPanel) nodeEditorPanel.classList.remove('hidden');
+        // Refresh import dropdown for this node
+        if (typeof populateImportDropdown === 'function') populateImportDropdown();
 
         setTimeout(() => {
             const videoEl = document.getElementById('node-video-preview');
@@ -993,6 +996,66 @@ const spreadOutBtn = getElement('spread-out-btn');
             renderButtons();
             selectButton(newButton.id);
         });
+        // ----- Import Buttons -----
+        const populateImportDropdown = () => {
+            if (!importButtonsSelect) return;
+            // Clear options
+            importButtonsSelect.innerHTML = '<option value="">Import Buttons From Node...</option>';
+            if (!currentProject) return;
+            currentProject.videos
+                .filter(v => v.id !== selectedNodeId && v.buttons && v.buttons.length > 0)
+                .forEach(v => {
+                    const opt = document.createElement('option');
+                    opt.value = v.id;
+                    opt.textContent = v.name;
+                    importButtonsSelect.appendChild(opt);
+                });
+        };
+
+        if (importButtonsSelect) {
+            importButtonsSelect.addEventListener('change', () => {
+                const sourceNodeId = importButtonsSelect.value;
+                if (!sourceNodeId) return;
+                if (!currentProject) return;
+                const sourceNode = currentProject.videos.find(v => v.id === sourceNodeId);
+                const targetNode = currentProject.videos.find(v => v.id === selectedNodeId);
+                if (!sourceNode || !targetNode) return;
+                if (!sourceNode.buttons || sourceNode.buttons.length === 0) return;
+
+                pushToUndoStack(); // Save state
+
+                if (!targetNode.buttons) targetNode.buttons = [];
+
+                const currentVideoDuration = (nodeVideoPreview && nodeVideoPreview.readyState >= 1) ? nodeVideoPreview.duration : 0;
+
+                sourceNode.buttons.forEach(btn => {
+                    const cloned = deepCopy(btn);
+                    cloned.id = generateId('btn-');
+
+                    // Adjust entrance time if original was at end
+                    if (currentVideoDuration > 0 && typeof btn.time === 'number') {
+                        // Heuristic: if time within last 0.2s of source duration assume at end
+                        // We don't know source duration, so if btn.duration property? none. So fallback: if btn.time > (currentVideoDuration - 0.2)
+                        // else leave unchanged but clamp within video duration.
+                        if (btn.time > currentVideoDuration - 0.2) {
+                            cloned.time = Math.max(currentVideoDuration - 0.1, 0);
+                        }
+                    }
+                    targetNode.buttons.push(cloned);
+                });
+
+                saveProjects();
+                renderButtons();
+                populateImportDropdown(); // refresh list (so user can import again if desired)
+
+                // reset select back to placeholder
+                importButtonsSelect.value = '';
+            });
+        }
+
+        // call initially
+        populateImportDropdown();
+
         buttonsList.addEventListener('click', e => {
             const item = e.target.closest('.button-item');
             if (item) {
