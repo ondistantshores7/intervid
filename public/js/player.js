@@ -508,6 +508,10 @@ class IVSPlayer {
                 
             buttonEl.classList.add(animClass);
             buttonEl.style.animationDuration = `${buttonData.animation.duration || 1}s`;
+            // Remove entrance animation class after it finishes so it doesn't replay on hover/unhover cycles
+            buttonEl.addEventListener('animationend', () => {
+                buttonEl.classList.remove(animClass);
+            }, { once: true });
             
             // Force reflow to ensure animation plays
             void buttonEl.offsetWidth;
