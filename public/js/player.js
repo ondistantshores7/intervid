@@ -452,6 +452,14 @@ class IVSPlayer {
         
         const buttonEl = document.createElement('button');
         buttonEl.className = 'video-overlay-button';
+        // Ensure gentle hover scale animation even if external CSS not loaded
+        buttonEl.style.transition = 'transform 0.2s ease';
+        buttonEl.addEventListener('mouseenter', () => {
+            buttonEl.style.transform = 'scale(1.05)';
+        });
+        buttonEl.addEventListener('mouseleave', () => {
+            buttonEl.style.transform = '';
+        });
         buttonEl.dataset.buttonId = buttonData.id;
 
         // Apply base styles
