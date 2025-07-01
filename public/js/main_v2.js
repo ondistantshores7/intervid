@@ -119,6 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const newProjectBtn = getElement('new-project-btn');
     const backToDashboardBtn = getElement('back-to-dashboard-btn');
     const projectTitleEditor = getElement('project-title-editor');
+    const renameProjectBtn = getElement('rename-project-btn');
     const addVideoBtn = getElement('add-video-btn');
     const nodesContainer = getElement('nodes-container');
     const nodeEditorPanel = getElement('node-editor-panel');
@@ -251,9 +252,17 @@ const spreadOutBtn = getElement('spread-out-btn');
             card.className='project-card';
             card.innerHTML=`<h3>${project.name}</h3><p>${project.videos.length} videos</p><p class="project-date">Edited: ${project.lastEdited ? new Date(project.lastEdited).toLocaleDateString() : '—'}</p>`;
             const editBtn=document.createElement('button');editBtn.textContent='Edit';editBtn.onclick=()=>navigateTo('editor',project.id);
+            const renameBtn=document.createElement('button');renameBtn.textContent='Rename';renameBtn.onclick=()=>{
+                const newName=prompt('Enter new project name:',project.name);
+                if(newName && newName.trim()){
+                    project.name=newName.trim();
+                    saveProjects();
+                    renderProjects(projectSearchInput.value);
+                }
+            };
             const dupBtn=document.createElement('button');dupBtn.textContent='Duplicate';dupBtn.onclick=()=>{const copy=JSON.parse(JSON.stringify(project));copy.id=generateId('project-');copy.name=project.name+' copy';copy.lastEdited=Date.now();projects.push(copy);saveProjects();renderProjects(projectSearchInput.value);} ;
             const delBtn=document.createElement('button');delBtn.textContent='Delete';delBtn.className='danger';delBtn.onclick=()=>{if(confirm('Delete project?')){projects=projects.filter(p=>p.id!==project.id);saveProjects();renderProjects(projectSearchInput.value);} };
-            card.append(editBtn,dupBtn,delBtn);
+            card.append(editBtn, renameBtn, dupBtn, delBtn);
             container.appendChild(card);
         });
     };
@@ -1127,6 +1136,19 @@ const spreadOutBtn = getElement('spread-out-btn');
         }
         if (spreadOutBtn) {
             spreadOutBtn.addEventListener('click', () => alignButtonsInWindow('spread'));
+        }
+
+        if (renameProjectBtn) {
+            renameProjectBtn.addEventListener('click', () => {
+                if (!currentProject) return;
+                const newName = prompt('Enter new project name:', currentProject.name);
+                if (newName && newName.trim()) {
+                    currentProject.name = newName.trim();
+                    saveProjects();
+                    projectTitleEditor.textContent = currentProject.name;
+                    renderProjects(projectSearchInput.value);
+                }
+            });
         }
 
         if (previewProjectBtn) previewProjectBtn.addEventListener('click', () => {
