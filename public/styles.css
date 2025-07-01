@@ -1193,7 +1193,7 @@ body.dark-mode #connections-svg path {
 }
 
 .interactive-button-preview:hover {
-    animation: pulseOverlay 0.6s cubic-bezier(0.25,0.8,0.25,1) infinite;
+    transform: translate(-50%, -50%) scale(1.1);
 }
 
 .video-overlay-button,
@@ -1203,7 +1203,7 @@ body.dark-mode #connections-svg path {
 
 .video-overlay-button:hover,
 .interactive-button:hover {
-    animation: pulseScale 0.6s cubic-bezier(0.25,0.8,0.25,1) infinite;
+    transform: scale(1.1) !important;
 }
 
 .interactive-button-preview.dragging {
