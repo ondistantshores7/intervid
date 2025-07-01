@@ -151,6 +151,7 @@ const spreadOutBtn = getElement('spread-out-btn');
     const buttonPosXInput = getElement('button-pos-x-input');
     const buttonPosYInput = getElement('button-pos-y-input');
     const buttonWidthInput = getElement('button-width-input');
+    const buttonAtEndCheckbox = getElement('button-at-end-checkbox');
     const buttonHeightInput = getElement('button-height-input');
     const animationType = getElement('animation-type');
     const animationDirection = getElement('animation-direction');
@@ -1138,6 +1139,28 @@ const spreadOutBtn = getElement('spread-out-btn');
             spreadOutBtn.addEventListener('click', () => alignButtonsInWindow('spread'));
         }
 
+        if (buttonAtEndCheckbox) {
+            buttonAtEndCheckbox.addEventListener('change', () => {
+                if (!selectedNodeId || !selectedButtonId || !currentProject) return;
+                const node = currentProject.videos.find(v => v.id === selectedNodeId);
+                if (!node) return;
+                const btn = node.buttons.find(b => b.id === selectedButtonId);
+                if (!btn) return;
+                pushToUndoStack();
+                if (buttonAtEndCheckbox.checked) {
+                    const vidDur = nodeVideoPreview.duration || 0;
+                    btn.time = vidDur > 0 ? Math.max(0, vidDur - 0.1) : 0;
+                    buttonTimeInput.disabled = true;
+                } else {
+                    buttonTimeInput.disabled = false;
+                }
+                buttonTimeInput.value = btn.time || 0;
+                saveProjects();
+                renderButtons();
+                selectButton(btn.id);
+            });
+        }
+
         if (renameProjectBtn) {
             renameProjectBtn.addEventListener('click', () => {
                 if (!currentProject) return;
@@ -1453,6 +1476,12 @@ const spreadOutBtn = getElement('spread-out-btn');
         // Update button inputs
         buttonTextInput.value = button.text || 'Button';
         buttonTimeInput.value = button.time || 0;
+        if (buttonAtEndCheckbox) {
+            const dur = nodeVideoPreview.duration || 0;
+            const atEnd = dur > 0 && Math.abs(dur - button.time) < 0.2;
+            buttonAtEndCheckbox.checked = atEnd;
+            buttonTimeInput.disabled = atEnd;
+        }
         // Populate button target node dropdown
         if (buttonTargetNode && currentProject && currentProject.videos && selectedNodeId) {
             buttonTargetNode.innerHTML = ''; // Clear existing options
