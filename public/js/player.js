@@ -301,7 +301,7 @@ class IVSPlayer {
 
                 // Music staff image
                 const staffImg = document.createElement('img');
-                staffImg.src = '/images/music-staff.png';
+                staffImg.src = 'https://raw.githubusercontent.com/ondistantshores7/intervid/main/public/images/music-staff.png';
                 staffImg.alt = 'Music Staff';
                 Object.assign(staffImg.style, {
                     maxWidth: '90%',
