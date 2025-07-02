@@ -236,7 +236,18 @@ class IVSPlayer {
                 zIndex: 6
             });
             this.clearHighlightsBtn.addEventListener('click', ()=>{
+                // Clear drawings
                 this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+                // Exit highlight mode and restore UI
+                this.isHighlightMode = false;
+                this.canvas.style.pointerEvents = 'none';
+                this.colorPicker.style.display = 'none';
+                this.clearHighlightsBtn.style.display = 'none';
+                this.highlighterBtn.classList.remove('active');
+                // Attempt to resume playback
+                if(this.videoEl.paused){
+                    this.videoEl.play().catch(()=>{});
+                }
             });
             container.appendChild(this.clearHighlightsBtn);
 
