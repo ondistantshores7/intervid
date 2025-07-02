@@ -107,12 +107,12 @@
             container.appendChild(embedDiv);
 
             // Call global initPlayer from player.js directly
-            if (typeof initPlayer === 'function') {
-                initPlayer(container, projectId);
+            if (typeof window.initPlayer === 'function') {
+                window.initPlayer(container, projectId);
             }
         });
         
-        async function initPlayer(container, projectId) {
+        async function legacyInitPlayer(container, projectId) {
             try {
                 console.log('Fetching project data');
                 const url = `https://learn.threeminutetheory.com/api/embed/${projectId}`;
@@ -144,7 +144,7 @@
             }
         }
         
-        function renderPlayer(container, project) {
+        function legacyRenderPlayer(container, project) {
             // Find the start node
             let startNode = null;
             if (project.startNodeId) {
@@ -185,7 +185,7 @@
         }
         
         <!-- Embedded player custom code removed: now reuses player.js -->
-        function convertToDirectUrl(hlsUrl) {
+        function convertToDirectUrlLegacy(hlsUrl) {
             if (hlsUrl && hlsUrl.includes('cloudflarestream.com')) {
                 const matches = hlsUrl.match(/\/([a-f0-9]+)\/manifest\/video\.m3u8/);
                 if (matches && matches[1]) {
