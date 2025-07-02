@@ -264,6 +264,102 @@ class IVSPlayer {
                 }
             };
             this.highlighterBtn.addEventListener('click', toggleHighlight);
+
+            /* ------------ Staff Overlay Button ------------- */
+            if (!this.staffBtn) {
+                this.staffBtn = document.createElement('button');
+                this.staffBtn.className = 'staff-btn';
+                this.staffBtn.title = 'Music Staff Overlay';
+                this.staffBtn.textContent = '🎼';
+                Object.assign(this.staffBtn.style, {
+                    position: 'absolute',
+                    bottom: '20px',
+                    right: '5px',
+                    fontSize: '20px',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    zIndex: 6
+                });
+                container.appendChild(this.staffBtn);
+
+                // Create overlay (hidden initially)
+                this.staffOverlay = document.createElement('div');
+                Object.assign(this.staffOverlay.style, {
+                    position: 'absolute',
+                    top: '0',
+                    left: '0',
+                    width: '100%',
+                    height: '100%',
+                    display: 'none',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    background: 'rgba(0,0,0,0.4)',
+                    zIndex: 4, // below canvas (5)
+                });
+
+                // Music staff image
+                const staffImg = document.createElement('img');
+                staffImg.src = 'images/Music%20Staff.png';
+                staffImg.alt = 'Music Staff';
+                Object.assign(staffImg.style, {
+                    maxWidth: '90%',
+                    maxHeight: '80%',
+                    pointerEvents: 'none'
+                });
+                this.staffOverlay.appendChild(staffImg);
+
+                // Close button
+                const closeBtn = document.createElement('button');
+                closeBtn.textContent = '✕';
+                Object.assign(closeBtn.style, {
+                    position: 'absolute',
+                    top: '10px',
+                    right: '10px',
+                    fontSize: '24px',
+                    background: 'transparent',
+                    color: '#fff',
+                    border: 'none',
+                    cursor: 'pointer',
+                    zIndex: 6
+                });
+                closeBtn.addEventListener('click', ()=>{
+                    this.staffOverlay.style.display = 'none';
+                    // Clear any highlights
+                    if (this.ctx) {
+                        this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+                    }
+                    // Disable highlight mode
+                    this.isHighlightMode = false;
+                    this.canvas.style.pointerEvents = 'none';
+                    this.colorPicker.style.display = 'none';
+                    this.clearHighlightsBtn.style.display = 'none';
+                    this.highlighterBtn.classList.remove('active');
+                });
+                this.staffOverlay.appendChild(closeBtn);
+
+                container.appendChild(this.staffOverlay);
+
+                // Toggle overlay on button click
+                this.staffBtn.addEventListener('click', ()=>{
+                    const showing = this.staffOverlay.style.display === 'flex';
+                    if (!showing) {
+                        // Show overlay and enable highlight mode
+                        this.staffOverlay.style.display = 'flex';
+                        this.isHighlightMode = true;
+                        this.canvas.style.pointerEvents = 'auto';
+                        this.colorPicker.style.display = 'block';
+                        this.clearHighlightsBtn.style.display = 'block';
+                        this.highlighterBtn.classList.add('active');
+                        // Pause video for annotation convenience
+                        this.videoEl.pause();
+                    } else {
+                        // Hide overlay via close logic above
+                        closeBtn.click();
+                    }
+                });
+            }
+            /* ----------------------------------------------- */
         }
 
         // Show/hide button based on play state
@@ -292,6 +388,19 @@ class IVSPlayer {
         // Clear any existing timeouts
         this.clearAllButtonTimeouts();
         this.activeButtons.clear();
+        // Hide staff overlay (if visible) and clear highlights when changing videos
+        if (this.staffOverlay) {
+            this.staffOverlay.style.display = 'none';
+        }
+        if (this.ctx && this.canvas) {
+            this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+        }
+        this.isHighlightMode = false;
+        if (this.canvas) this.canvas.style.pointerEvents = 'none';
+        if (this.colorPicker) this.colorPicker.style.display = 'none';
+        if (this.clearHighlightsBtn) this.clearHighlightsBtn.style.display = 'none';
+        if (this.highlighterBtn) this.highlighterBtn.classList.remove('active');
+
         this.animatedButtons.clear(); // Reset animated buttons for new video
         
         const node = this.project.videos.find(v => v.id === nodeId);
