@@ -183,7 +183,7 @@ class IVSPlayer {
             window.addEventListener('mouseup', () => {
                 if (this.isDrawing) {
                     this.isDrawing = false;
-                    this.canvas.style.pointerEvents = 'none';
+                    this.canvas.style.pointerEvents = 'auto';
                 }
             });
         }
@@ -304,8 +304,8 @@ class IVSPlayer {
                 staffImg.src = 'https://raw.githubusercontent.com/ondistantshores7/intervid/main/public/images/music-staff.png';
                 staffImg.alt = 'Music Staff';
                 Object.assign(staffImg.style, {
-                    maxWidth: '90%',
-                    maxHeight: '80%',
+                    maxWidth: '95%',
+                    maxHeight: '90%',
                     pointerEvents: 'none'
                 });
                 this.staffOverlay.appendChild(staffImg);
