@@ -50,17 +50,6 @@
             font-family: Arial, sans-serif;
             font-size: 16px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-            opacity: 0;
-            transform: translate(-50%, -50%) scale(0.9);
-            transition: transform 0.3s cubic-bezier(0.25,0.8,0.25,1), opacity 0.3s ease;
-        }
-        .interactive-button.visible {
-            opacity: 1;
-            transform: translate(-50%, -50%) scale(1);
-        }
-        .interactive-button.hide {
-            opacity: 0;
-            transform: translate(-50%, -50%) scale(0.9);
         }
         .loading {
             color: white;
@@ -88,12 +77,14 @@
             pointer-events: all;
         }
     </style>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div id="player-container">
         <div class="loading">Loading interactive video...</div>
     </div>
 
+    <script src="js/player.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const container = document.getElementById('player-container');
@@ -105,8 +96,20 @@
                 return;
             }
             
-            console.log(`Loading project: ${projectId}`);
-            initPlayer(container, projectId);
+            // Clear any placeholder, set attribute for shared player script
+            container.innerHTML = '';
+            container.setAttribute('data-project', projectId);
+
+            const embedDiv = document.createElement('div');
+            embedDiv.className = 'iv-player_embed';
+            embedDiv.style.width = '100%';
+            embedDiv.style.height = '100%';
+            container.appendChild(embedDiv);
+
+            // Call global initPlayer from player.js directly
+            if (typeof initPlayer === 'function') {
+                initPlayer(container, projectId);
+            }
         });
         
         async function initPlayer(container, projectId) {
@@ -181,7 +184,7 @@
             nodeManager.loadNode(startNode.id);
         }
         
-        // Helper to convert HLS URL to direct MP4 URL
+        <!-- Embedded player custom code removed: now reuses player.js -->
         function convertToDirectUrl(hlsUrl) {
             if (hlsUrl && hlsUrl.includes('cloudflarestream.com')) {
                 const matches = hlsUrl.match(/\/([a-f0-9]+)\/manifest\/video\.m3u8/);
@@ -272,7 +275,7 @@
                     btnElement.style.position = 'absolute';
                     btnElement.style.top = button.y || '50%';
                     btnElement.style.left = button.x || '50%';
-                    // translation & scale handled via CSS
+                    btnElement.style.transform = 'translate(-50%, -50%)';
                     btnElement.style.backgroundColor = button.color || '#2196F3';
                     
                     btnElement.addEventListener('click', () => {
@@ -282,8 +285,6 @@
                     });
                     
                     this.buttonContainer.appendChild(btnElement);
-                    // trigger entrance animation on next frame
-                    requestAnimationFrame(() => btnElement.classList.add('visible'));
                     this.activeButtons.push(btnElement);
                 });
             }
@@ -301,17 +302,11 @@
             }
             
             clearButtons() {
-                const toRemove = [];
                 this.activeButtons.forEach(btn => {
-                    btn.classList.remove('visible');
-                    btn.classList.add('hide');
-                    const handleEnd = () => {
-                        if (btn.parentNode) btn.parentNode.removeChild(btn);
-                    };
-                    btn.addEventListener('transitionend', handleEnd, { once: true });
-                    toRemove.push(btn);
+                    if (btn.parentNode) {
+                        btn.parentNode.removeChild(btn);
+                    }
                 });
-                // clear reference list
                 this.activeButtons = [];
             }
         }
