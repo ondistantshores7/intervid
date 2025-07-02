@@ -324,6 +324,8 @@ class IVSPlayer {
                     cursor: 'pointer',
                     zIndex: 6
                 });
+                closeBtn.style.display = 'none';
+                closeBtn.style.zIndex = '999';
                 closeBtn.addEventListener('click', ()=>{
                     this.staffOverlay.style.display = 'none';
                     // Clear any highlights
@@ -336,8 +338,9 @@ class IVSPlayer {
                     this.colorPicker.style.display = 'none';
                     this.clearHighlightsBtn.style.display = 'none';
                     this.highlighterBtn.classList.remove('active');
+                    closeBtn.style.display = 'none';
                 });
-                this.staffOverlay.appendChild(closeBtn);
+                container.appendChild(closeBtn);
 
                 container.appendChild(this.staffOverlay);
 
@@ -352,6 +355,7 @@ class IVSPlayer {
                         this.colorPicker.style.display = 'block';
                         this.clearHighlightsBtn.style.display = 'block';
                         this.highlighterBtn.classList.add('active');
+                        closeBtn.style.display = 'block';
                         // Pause video for annotation convenience
                         this.videoEl.pause();
                     } else {
