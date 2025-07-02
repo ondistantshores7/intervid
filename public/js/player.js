@@ -273,7 +273,7 @@ class IVSPlayer {
                 this.staffBtn.textContent = '🎼';
                 Object.assign(this.staffBtn.style, {
                     position: 'absolute',
-                    bottom: '20px',
+                    bottom: '100px',
                     right: '5px',
                     fontSize: '20px',
                     background: 'transparent',
@@ -281,6 +281,7 @@ class IVSPlayer {
                     cursor: 'pointer',
                     zIndex: 6
                 });
+                this.staffBtn.style.display = 'none';
                 container.appendChild(this.staffBtn);
 
                 // Create overlay (hidden initially)
@@ -300,7 +301,7 @@ class IVSPlayer {
 
                 // Music staff image
                 const staffImg = document.createElement('img');
-                staffImg.src = 'images/Music%20Staff.png';
+                staffImg.src = 'images/music-staff.png';
                 staffImg.alt = 'Music Staff';
                 Object.assign(staffImg.style, {
                     maxWidth: '90%',
@@ -364,12 +365,14 @@ class IVSPlayer {
 
         // Show/hide button based on play state
         this.videoEl.addEventListener('pause', () => {
+            if(this.staffBtn) this.staffBtn.style.display = 'block';
             this.highlighterBtn.style.display = 'block';
         });
         this.videoEl.addEventListener('play', () => {
             if(this.colorPicker) this.colorPicker.style.display = 'none';
             if(this.clearHighlightsBtn) this.clearHighlightsBtn.style.display = 'none';
             this.highlighterBtn.style.display = 'none';
+            if(this.staffBtn) this.staffBtn.style.display = 'none';
             this.isHighlightMode = false;
             this.canvas.style.pointerEvents = 'none';
             this.highlighterBtn.classList.remove('active');
