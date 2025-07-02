@@ -273,7 +273,7 @@ class IVSPlayer {
                 this.staffBtn.textContent = '🎼';
                 Object.assign(this.staffBtn.style, {
                     position: 'absolute',
-                    bottom: '100px',
+                    bottom: '180px',
                     right: '5px',
                     fontSize: '20px',
                     background: 'transparent',
@@ -301,7 +301,7 @@ class IVSPlayer {
 
                 // Music staff image
                 const staffImg = document.createElement('img');
-                staffImg.src = 'images/music-staff.png';
+                staffImg.src = '/images/music-staff.png';
                 staffImg.alt = 'Music Staff';
                 Object.assign(staffImg.style, {
                     maxWidth: '90%',
