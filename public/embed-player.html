@@ -50,6 +50,17 @@
             font-family: Arial, sans-serif;
             font-size: 16px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.25,0.8,0.25,1), opacity 0.3s ease;
+        }
+        .interactive-button.visible {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+        .interactive-button.hide {
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0.9);
         }
         .loading {
             color: white;
@@ -261,7 +272,7 @@
                     btnElement.style.position = 'absolute';
                     btnElement.style.top = button.y || '50%';
                     btnElement.style.left = button.x || '50%';
-                    btnElement.style.transform = 'translate(-50%, -50%)';
+                    // translation & scale handled via CSS
                     btnElement.style.backgroundColor = button.color || '#2196F3';
                     
                     btnElement.addEventListener('click', () => {
@@ -271,6 +282,8 @@
                     });
                     
                     this.buttonContainer.appendChild(btnElement);
+                    // trigger entrance animation on next frame
+                    requestAnimationFrame(() => btnElement.classList.add('visible'));
                     this.activeButtons.push(btnElement);
                 });
             }
@@ -288,11 +301,17 @@
             }
             
             clearButtons() {
+                const toRemove = [];
                 this.activeButtons.forEach(btn => {
-                    if (btn.parentNode) {
-                        btn.parentNode.removeChild(btn);
-                    }
+                    btn.classList.remove('visible');
+                    btn.classList.add('hide');
+                    const handleEnd = () => {
+                        if (btn.parentNode) btn.parentNode.removeChild(btn);
+                    };
+                    btn.addEventListener('transitionend', handleEnd, { once: true });
+                    toRemove.push(btn);
                 });
+                // clear reference list
                 this.activeButtons = [];
             }
         }
