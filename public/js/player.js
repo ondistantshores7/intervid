@@ -104,6 +104,11 @@ class IVSPlayer {
 
         this.buttonClickHandler = this.handleButtonClick.bind(this);
         this.buttonsContainer.addEventListener('click', this.buttonClickHandler);
+
+        // Responsive font adjustment
+        this.adjustAllButtonFonts = this.adjustAllButtonFonts.bind(this);
+        window.addEventListener('resize', this.adjustAllButtonFonts);
+        this.videoEl.addEventListener('loadedmetadata', this.adjustAllButtonFonts);
         this.videoEndedHandler = this.handleVideoEnd.bind(this);
 
         this.setupHighlighter();
@@ -659,6 +664,12 @@ class IVSPlayer {
         }
         
         this.buttonsContainer.appendChild(buttonEl);
+        // Store original font px and adjust for current viewport
+        if (!buttonEl.dataset.origFontPx) {
+            const m = /([0-9.]+)px/.exec(buttonEl.style.fontSize || '');
+            if (m) buttonEl.dataset.origFontPx = m[1];
+        }
+        this.adjustFontSize(buttonEl);
         return buttonEl;
     }
 
@@ -754,6 +765,29 @@ class IVSPlayer {
         }
         
         return null;
+    }
+
+    /* ---------------- Font helpers ---------------- */
+    adjustFontSize(btn) {
+        if (!btn || btn.classList.contains('embed-container')) return;
+        // original font size in px
+        const origPx = parseFloat(btn.dataset.origFontPx || window.getComputedStyle(btn).fontSize);
+        if (!origPx) return;
+        // capture original button width once
+        if (!btn.dataset.origButtonW) {
+            btn.dataset.origButtonW = btn.offsetWidth || 1;
+        }
+        const origW = parseFloat(btn.dataset.origButtonW) || 1;
+        const currentW = btn.offsetWidth || origW;
+        const scale = currentW / origW;
+        const minRatio = 0.5; // never drop below 50% of original
+        const newSize = Math.max(origPx * minRatio, origPx * scale);
+        btn.style.fontSize = `${newSize}px`;
+    }
+
+    adjustAllButtonFonts() {
+        if (!this.buttonsContainer) return;
+        this.buttonsContainer.querySelectorAll('.video-overlay-button').forEach(b => this.adjustFontSize(b));
     }
 
     destroy() {
