@@ -203,7 +203,10 @@ class IVSPlayer {
     loadCaptions(lang) {
         // Remove existing tracks
         const existingTracks = this.videoEl.querySelectorAll('track[kind="subtitles"]');
-        existingTracks.forEach(track => track.remove());
+        existingTracks.forEach(track => {
+            track.mode = 'disabled';
+            track.remove();
+        });
 
         this.captionsActive = true;
         this.currentLanguage = lang;
@@ -211,17 +214,27 @@ class IVSPlayer {
         localStorage.setItem('preferredCaptionLanguage', lang);
 
         // Construct VTT URL (placeholder - adapt to actual Cloudflare Stream URL structure)
-        const videoId = this.projectData.video ? this.projectData.video.id : '';
-        const vttUrl = `https://videodelivery.net/${videoId}/subtitles/${lang}.vtt`;
+        // In a real implementation, this URL would be fetched from Cloudflare API or metadata
+        const videoId = this.projectData.video ? this.projectData.video.id : (this.projectData.currentVideoId || '');
+        let vttUrl = '';
+        if (lang === 'en') {
+            vttUrl = `https://videodelivery.net/${videoId}/subtitles/en.vtt`;
+        } else if (lang === 'es') {
+            vttUrl = `https://videodelivery.net/${videoId}/subtitles/es.vtt`;
+        }
 
-        // Add new track
-        const track = document.createElement('track');
-        track.kind = 'subtitles';
-        track.src = vttUrl;
-        track.srclang = lang;
-        track.label = lang === 'en' ? 'English' : 'Spanish';
-        track.mode = 'showing';
-        this.videoEl.appendChild(track);
+        if (vttUrl) {
+            // Add new track
+            const track = document.createElement('track');
+            track.kind = 'subtitles';
+            track.src = vttUrl;
+            track.srclang = lang;
+            track.label = lang === 'en' ? 'English' : 'Spanish';
+            track.mode = 'showing';
+            this.videoEl.appendChild(track);
+        } else {
+            console.error(`No VTT URL for language: ${lang}`);
+        }
     }
 
     disableCaptions() {
@@ -743,9 +756,14 @@ class IVSPlayer {
             if (match) {
                 const px = parseFloat(match[1]);
                 const minPx = Math.max(10, Math.round(px * 0.6));
-                // Use viewport width scaling: 1vw roughly equals 1% of viewport width
-                // Coefficient 2vw provides nice scaling; tweak based on original size
-                buttonEl.style.fontSize = `clamp(${minPx}px, 2vw, ${px}px)`;
+                // Use viewport width as an additional scaling factor for mobile
+                const viewportWidth = window.innerWidth;
+                const baseViewport = 1440; // Reference desktop width
+                const viewportScale = viewportWidth / baseViewport;
+                const scale = (currentW / origW) * Math.min(1, viewportScale);
+                const minRatio = 0.6; // Adjusted minimum to ensure visibility on mobile
+                const newSize = Math.max(origPx * minRatio, origPx * scale);
+                buttonEl.style.fontSize = `${newSize}px`;
                 buttonEl.dataset.origFontSize = `${px}`;
             } else {
                 buttonEl.style.fontSize = buttonStyle.fontSize;
