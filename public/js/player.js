@@ -664,6 +664,12 @@ class IVSPlayer {
         }
         
         this.buttonsContainer.appendChild(buttonEl);
+        // Store original font px and adjust for current viewport
+        if (!buttonEl.dataset.origFontPx) {
+            const m = /([0-9.]+)px/.exec(buttonEl.style.fontSize || '');
+            if (m) buttonEl.dataset.origFontPx = m[1];
+        }
+        this.adjustFontSize(buttonEl);
 
         return buttonEl;
     }
@@ -778,25 +784,29 @@ class IVSPlayer {
         this.buttonsContainer.style.transform = `scale(${scale})`;
     }
 
-    /* ---- legacy helpers kept for safety but unused ---- */
+    adjustAllButtonFonts() {
+        if (!this.buttonsContainer) return;
+        this.buttonsContainer.querySelectorAll('.video-overlay-button').forEach(b => this.adjustFontSize(b));
+    }
+
     adjustFontSize(btn) {
         if (!btn || btn.classList.contains('embed-container')) return;
-        // original font size in px
+        // Original font size in px
         const origPx = parseFloat(btn.dataset.origFontPx || window.getComputedStyle(btn).fontSize);
         if (!origPx) return;
-        // capture original button width once
+        // Capture original button width once
         if (!btn.dataset.origButtonW) {
             btn.dataset.origButtonW = btn.offsetWidth || 1;
         }
         const origW = parseFloat(btn.dataset.origButtonW) || 1;
         const currentW = btn.offsetWidth || origW;
         const scale = currentW / origW;
-        const newSize = origPx * scale;
+        const minRatio = 0.75; // Prevent text from becoming too small
+        const newSize = Math.max(origPx * minRatio, origPx * scale);
         btn.style.fontSize = `${newSize}px`;
     }
 
-
-
+    /* ---- legacy helpers kept for safety but unused ---- */
     destroy() {
         if (this.hls) {
             this.hls.destroy();
