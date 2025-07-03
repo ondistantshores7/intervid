@@ -806,7 +806,7 @@ class IVSPlayer {
             return false;
         };
         const tracks = this.hls.subtitleTracks || [];
-        const idx = tracks.findIndex(t => langMatches({language:t.lang,label:t.name}, pref));
+        const idx = tracks.findIndex(t => langMatches({lang: t.lang, name: t.name}, pref));
         this.hls.subtitleTrack = idx !== -1 ? idx : -1;
     }
 
