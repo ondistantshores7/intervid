@@ -105,10 +105,10 @@ class IVSPlayer {
         this.buttonClickHandler = this.handleButtonClick.bind(this);
         this.buttonsContainer.addEventListener('click', this.buttonClickHandler);
 
-        // Responsive font adjustment
-        this.adjustAllButtonFonts = this.adjustAllButtonFonts.bind(this);
-        window.addEventListener('resize', this.adjustAllButtonFonts);
-        this.videoEl.addEventListener('loadedmetadata', this.adjustAllButtonFonts);
+        // Responsive overlay scaling
+        this.updateOverlayScale = this.updateOverlayScale.bind(this);
+        window.addEventListener('resize', this.updateOverlayScale);
+        this.videoEl.addEventListener('loadedmetadata', this.updateOverlayScale);
         this.videoEndedHandler = this.handleVideoEnd.bind(this);
 
         this.setupHighlighter();
@@ -664,12 +664,7 @@ class IVSPlayer {
         }
         
         this.buttonsContainer.appendChild(buttonEl);
-        // Store original font px and adjust for current viewport
-        if (!buttonEl.dataset.origFontPx) {
-            const m = /([0-9.]+)px/.exec(buttonEl.style.fontSize || '');
-            if (m) buttonEl.dataset.origFontPx = m[1];
-        }
-        this.adjustFontSize(buttonEl);
+
         return buttonEl;
     }
 
@@ -767,7 +762,23 @@ class IVSPlayer {
         return null;
     }
 
-    /* ---------------- Font helpers ---------------- */
+    /* ---------------- Overlay scaling ---------------- */
+    updateOverlayScale() {
+        if (!this.videoEl || !this.buttonsContainer) return;
+        // Record the video's natural dimensions once
+        if (!this._naturalW || !this._naturalH) {
+            this._naturalW = this.videoEl.videoWidth || this.videoEl.clientWidth;
+            this._naturalH = this.videoEl.videoHeight || this.videoEl.clientHeight;
+            this.buttonsContainer.style.width = `${this._naturalW}px`;
+            this.buttonsContainer.style.height = `${this._naturalH}px`;
+        }
+        if (!this._naturalW) return;
+        const scale = this.videoEl.clientWidth / this._naturalW;
+        this.buttonsContainer.style.transformOrigin = 'top left';
+        this.buttonsContainer.style.transform = `scale(${scale})`;
+    }
+
+    /* ---- legacy helpers kept for safety but unused ---- */
     adjustFontSize(btn) {
         if (!btn || btn.classList.contains('embed-container')) return;
         // original font size in px
@@ -784,10 +795,7 @@ class IVSPlayer {
         btn.style.fontSize = `${newSize}px`;
     }
 
-    adjustAllButtonFonts() {
-        if (!this.buttonsContainer) return;
-        this.buttonsContainer.querySelectorAll('.video-overlay-button').forEach(b => this.adjustFontSize(b));
-    }
+
 
     destroy() {
         if (this.hls) {
