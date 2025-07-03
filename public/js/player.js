@@ -835,15 +835,18 @@ class IVSPlayer {
 
         const buttonId = target.dataset.buttonId;
         const buttonData = this.currentNode.buttons.find(b => b.id === buttonId);
-        // Universal caption language detection
+        // Detect caption-language toggle ONLY if the button text also contains caption keywords
         if (buttonData && buttonData.text) {
-            const lowerText = buttonData.text.toLowerCase();
-            if (lowerText.includes('español') || lowerText.includes('espanol') || lowerText.includes('spanish')) {
-                this.setSubtitleLanguage('es');
-            } else if (lowerText.includes('english') || lowerText.includes('inglés') || lowerText.includes('ingles')) {
-                this.setSubtitleLanguage('en');
-            } else if (lowerText.includes('off') || lowerText.includes('no captions') || lowerText.includes('sin subtítulos') || lowerText.includes('sin subtitulos')) {
-                this.setSubtitleLanguage('off');
+            const t = buttonData.text.toLowerCase();
+            const hasCaptionKeyword = t.includes('caption') || t.includes('captions') || t.includes('subtit') || t.includes('cc');
+            if (hasCaptionKeyword) {
+                if (t.includes('español') || t.includes('espanol') || t.includes('spanish')) {
+                    this.setSubtitleLanguage('es');
+                } else if (t.includes('english') || t.includes('inglés') || t.includes('ingles')) {
+                    this.setSubtitleLanguage('en');
+                } else if (t.includes('off') || t.includes('no captions') || t.includes('sin subtítulos') || t.includes('sin subtitulos') || t.includes('none')) {
+                    this.setSubtitleLanguage('off');
+                }
             }
         }
 
@@ -851,15 +854,6 @@ class IVSPlayer {
             // For embed types, do nothing; the embedded content handles interaction.
             return;
         } else if (buttonData.linkType === 'url') {
-
-            const lowerText = (buttonData.text || '').toLowerCase();
-            if (lowerText.includes('español') || lowerText.includes('espanol') || lowerText.includes('spanish')) {
-                this.setSubtitleLanguage('es');
-            } else if (lowerText.includes('english') || lowerText.includes('inglés') || lowerText.includes('ingles')) {
-                this.setSubtitleLanguage('en');
-            } else if (lowerText.includes('off') || lowerText.includes('no captions') || lowerText.includes('sin subtítulos')) {
-                this.setSubtitleLanguage('off');
-            }
 
             let url = buttonData.target.trim();
             // Ensure the URL has a protocol (default to https:// if missing)
