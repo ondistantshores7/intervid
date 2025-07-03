@@ -787,8 +787,12 @@ class IVSPlayer {
         }
         const origW = parseFloat(btn.dataset.origButtonW) || 1;
         const currentW = btn.offsetWidth || origW;
-        const scale = currentW / origW;
-        const minRatio = 0.75; // Prevent text from becoming too small
+        // Use viewport width as an additional scaling factor for mobile
+        const viewportWidth = window.innerWidth;
+        const baseViewport = 1440; // Reference desktop width
+        const viewportScale = viewportWidth / baseViewport;
+        const scale = (currentW / origW) * Math.min(1, viewportScale);
+        const minRatio = 0.6; // Adjusted minimum to ensure visibility on mobile
         const newSize = Math.max(origPx * minRatio, origPx * scale);
         btn.style.fontSize = `${newSize}px`;
     }
