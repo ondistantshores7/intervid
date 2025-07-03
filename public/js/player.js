@@ -708,100 +708,42 @@ class IVSPlayer {
         }, duration);
     }
 
-    createButton(buttonData) {
-        // Remove any existing button with the same ID
-        const existingButton = this.buttonsContainer.querySelector(`[data-button-id='${buttonData.id}']`);
-        if (existingButton) {
-            existingButton.remove();
-        }
-        
+    createButton(btnData) {
+        if (!btnData || !btnData.id) return null;
+        console.log('Creating button:', btnData);
         const buttonEl = document.createElement('button');
         buttonEl.className = 'video-overlay-button';
-        // Ensure gentle hover scale animation even if external CSS not loaded
-        buttonEl.style.transition = 'transform 0.3s cubic-bezier(0.25,0.8,0.25,1)';
-        // Hover pulse handled by CSS
-        buttonEl.dataset.buttonId = buttonData.id;
-
-        // Apply base styles
-        const buttonStyle = {
-            position: 'absolute',
-            left: buttonData.position?.x || '50%',
-            top: buttonData.position?.y || '50%',
-            pointerEvents: 'auto',
-            boxSizing: 'border-box',
-            ...buttonData.style // User-defined styles
-        };
-
-        if (buttonData.linkType === 'embed') {
-            buttonEl.classList.add('embed-container');
-            buttonEl.innerHTML = buttonData.embedCode || '';
-            // For embeds, we don't want flex centering, we want the content to fill the space.
-        } else {
-            buttonEl.textContent = buttonData.text;
-            // For text buttons, apply flex for centering
-            Object.assign(buttonStyle, {
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-            });
-        }
+        buttonEl.id = `btn-${btnData.id}`;
+        buttonEl.dataset.nodeId = btnData.targetNodeId || '';
+        buttonEl.dataset.url = btnData.url || '';
+        buttonEl.dataset.action = btnData.action || 'next';
+        buttonEl.innerText = btnData.text || 'Next';
         
-        // Apply the base styles
-        // Ensure font and opacity are explicitly applied
-        if (buttonStyle.fontFamily) buttonEl.style.fontFamily = buttonStyle.fontFamily;
-        if (buttonStyle.fontSize) {
-            // If fontSize specified in px, convert to responsive clamp
-            const match = /^([0-9.]+)px$/.exec(buttonStyle.fontSize);
-            if (match) {
-                const px = parseFloat(match[1]);
-                const minPx = Math.max(10, Math.round(px * 0.6));
-                // Use viewport width as an additional scaling factor for mobile
-                const viewportWidth = window.innerWidth;
-                const baseViewport = 1440; // Reference desktop width
-                const viewportScale = viewportWidth / baseViewport;
-                const scale = (currentW / origW) * Math.min(1, viewportScale);
-                const minRatio = 0.6; // Adjusted minimum to ensure visibility on mobile
-                const newSize = Math.max(origPx * minRatio, origPx * scale);
-                buttonEl.style.fontSize = `${newSize}px`;
-                buttonEl.dataset.origFontSize = `${px}`;
-            } else {
-                buttonEl.style.fontSize = buttonStyle.fontSize;
+        // Apply styles from btnData if available
+        if (btnData.style) {
+            if (btnData.style.position) {
+                buttonEl.style.left = btnData.style.position.left ? `${btnData.style.position.left}px` : 'auto';
+                buttonEl.style.top = btnData.style.position.top ? `${btnData.style.position.top}px` : 'auto';
+                buttonEl.style.right = btnData.style.position.right ? `${btnData.style.position.right}px` : 'auto';
+                buttonEl.style.bottom = btnData.style.position.bottom ? `${btnData.style.position.bottom}px` : 'auto';
             }
-            // lineHeight will follow font-size automatically
-        }
-        if (buttonStyle.opacity !== undefined) buttonEl.style.opacity = buttonStyle.opacity;
-        Object.assign(buttonEl.style, buttonStyle);
-
-        // Apply shadow style
-        if (buttonData.shadow && buttonData.shadow.enabled) {
-            const shadow = buttonData.shadow;
-            const rgbaColor = hexToRgba(shadow.color || '#000000', shadow.opacity !== undefined ? shadow.opacity : 0.5);
-            buttonEl.style.boxShadow = `${shadow.hOffset || 2}px ${shadow.vOffset || 2}px ${shadow.blur || 4}px ${shadow.spread || 0}px ${rgbaColor}`;
-        } else {
-            buttonEl.style.boxShadow = 'none';
-        }
-        
-        // Apply animation if specified
-        if (buttonData.animation?.type !== 'none') {
-            const animClass = buttonData.animation.type === 'slide' 
-                ? `anim-slide-${buttonData.animation.direction || 'left'}` 
-                : 'anim-fade-in';
-                
-            buttonEl.classList.add(animClass);
-            buttonEl.style.animationDuration = `${buttonData.animation.duration || 1}s`;
-            // Remove entrance animation class after it finishes so it doesn't replay on hover/unhover cycles
-            buttonEl.addEventListener('animationend', () => {
-                buttonEl.classList.remove(animClass);
-            }, { once: true });
-            
-            // Force reflow to ensure animation plays
-            void buttonEl.offsetWidth;
-        } else {
-            // If no animation, just show the button
-            buttonEl.style.opacity = '1';
+            if (btnData.style.size) {
+                buttonEl.style.width = btnData.style.size.width ? `${btnData.style.size.width}px` : 'auto';
+                buttonEl.style.height = btnData.style.size.height ? `${btnData.style.size.height}px` : 'auto';
+            }
+            if (btnData.style.color) {
+                if (btnData.style.color.background) {
+                    buttonEl.style.backgroundColor = btnData.style.color.background;
+                }
+                if (btnData.style.color.text) {
+                    buttonEl.style.color = btnData.style.color.text;
+                }
+            }
+            if (btnData.style.font) {
+                buttonEl.style.fontSize = btnData.style.font.size ? `${btnData.style.font.size}px` : '16px';
+            }
         }
         
-        this.buttonsContainer.appendChild(buttonEl);
         // Store original font px and adjust for current viewport
         if (!buttonEl.dataset.origFontPx) {
             const m = /([0-9.]+)px/.exec(buttonEl.style.fontSize || '');
@@ -809,87 +751,80 @@ class IVSPlayer {
         }
         this.adjustFontSize(buttonEl);
 
+        this.buttonsContainer.appendChild(buttonEl);
         return buttonEl;
     }
 
-    handleButtonClick(e) {
-        const target = e.target.closest('.video-overlay-button');
-        if (!target) return;
-
-        const buttonId = target.dataset.buttonId;
-        const buttonData = this.currentNode.buttons.find(b => b.id === buttonId);
-
-        if (buttonData.linkType === 'embed') {
-            // For embed types, do nothing; the embedded content handles interaction.
-            return;
-        } else if (buttonData.linkType === 'url') {
-            let url = buttonData.target.trim();
-            // Ensure the URL has a protocol (default to https:// if missing)
-            if (url && !/^https?:\/\//i.test(url)) {
-                url = 'https://' + url;
+    handleTimeUpdate() {
+        if (!this.currentNode || !this.currentNode.buttons) return;
+        const currentTime = this.videoEl.currentTime;
+        this.currentNode.buttons.forEach(btnData => {
+            if (!btnData || !btnData.time) return;
+            const startTime = btnData.time.start || 0;
+            const endTime = btnData.time.end || Infinity;
+            const buttonEl = this.buttonsContainer.querySelector(`#btn-${btnData.id}`);
+            if (!buttonEl) return;
+            if (currentTime >= startTime && currentTime <= endTime) {
+                if (!buttonEl.classList.contains('visible')) {
+                    buttonEl.classList.add('visible');
+                    this.activeButtons.set(btnData.id, buttonEl);
+                    // Apply animation if specified and not yet animated
+                    if (btnData.animation && !this.animatedButtons.has(btnData.id)) {
+                        const animClass = `anim-${btnData.animation}`;
+                        buttonEl.classList.add(animClass);
+                        this.animatedButtons.add(btnData.id);
+                    }
+                }
+            } else {
+                if (buttonEl.classList.contains('visible')) {
+                    buttonEl.classList.remove('visible');
+                    this.activeButtons.delete(btnData.id);
+                }
             }
+        });
+    }
+
+    handleButtonClick(event) {
+        const buttonEl = event.target.closest('.video-overlay-button');
+        if (!buttonEl) return;
+        const targetNodeId = buttonEl.dataset.nodeId || '';
+        const url = buttonEl.dataset.url || '';
+        const action = buttonEl.dataset.action || 'next';
+        console.log(`Button clicked: target=${targetNodeId}, action=${action}, url=${url}`);
+        if (action === 'next' && targetNodeId) {
+            this.loadVideo(targetNodeId);
+            this.videoEl.play().catch(err => console.error('Play failed:', err));
+        } else if (action === 'url' && url) {
             window.open(url, '_blank');
-        } else {
-            this.loadVideo(buttonData.target);
+        } else if (action === 'restart') {
+            if (this.currentNode) {
+                this.loadVideo(this.currentNode.id);
+                this.videoEl.play().catch(err => console.error('Play failed:', err));
+            }
         }
     }
 
     handleVideoEnd() {
-        console.log('Video ended. Current node endAction:', this.currentNode.endAction);
-        const endAction = this.currentNode.endAction;
-
-        if (!endAction || !endAction.type) {
-            console.log('No end action defined or type is missing for node:', this.currentNode.id);
-            return; 
-        }
-
-        switch (endAction.type) {
-            case 'loop':
+        console.log('Video ended. Loop count:', this.loopCount);
+        if (this.currentNode) {
+            if (this.currentNode.loop && this.currentNode.loop.enabled && this.loopCount < (this.currentNode.loop.count || 1)) {
+                console.log('Looping video.');
                 this.loopCount++;
-                console.log(`Looping video (${this.loopCount}/3)`);
-                if (this.loopCount < 3) {
-                    // If we haven't reached 3 loops, play again
-                    this.videoEl.currentTime = 0;
-                    this.videoEl.play().catch(e => console.error('Loop playback failed:', e));
-                } else {
-                    // After 3 loops, reset counter and continue to next action if any
-                    this.loopCount = 0;
-                    // If there's a next node, play it
-                    const nextNodeId = this.findNextNodeId();
-                    if (nextNodeId) {
-                        this.loadVideo(nextNodeId);
-                    }
-                }
-                break;
-            case 'node':
-                if (endAction.targetNode) {
-                    console.log(`End action: Play node ${endAction.targetNode}`);
-                    this.loadVideo(endAction.targetNode);
-                } else {
-                    console.warn('End action type is "node", but no targetNode specified.');
-                }
-                break;
-            case 'url':
-                if (endAction.targetUrl) {
-                    console.log(`End action: Open URL ${endAction.targetUrl}`);
-                    window.open(endAction.targetUrl, '_blank');
-                } else {
-                    console.warn('End action type is "url", but no targetUrl specified.');
-                }
-                break;
-            case 'repeat':
-                console.log('End action: Repeat video.');
                 this.videoEl.currentTime = 0;
-                this.videoEl.play().catch(e => console.error('Repeat playback failed:', e));
-                break;
-            case 'none':
-            default:
-                console.log('End action: Do nothing.');
-                break;
+                this.videoEl.play().catch(err => console.error('Play failed:', err));
+            } else {
+                const nextNodeId = this.findNextNodeId();
+                if (nextNodeId) {
+                    console.log('Moving to next node:', nextNodeId);
+                    this.loadVideo(nextNodeId);
+                    this.videoEl.play().catch(err => console.error('Play failed:', err));
+                } else {
+                    console.log('No next node found.');
+                }
+            }
         }
     }
 
-    // Find the next node in the flow (for after loop completes)
     findNextNodeId() {
         if (!this.currentNode || !this.projectData.connections) return null;
         
@@ -899,10 +834,10 @@ class IVSPlayer {
         );
         
         if (connections.length > 0) {
-            // Just take the first connection for simplicity
-            return connections[0].targetId;
+            // Sort by order if available, or use first connection
+            connections.sort((a, b) => (a.order || 0) - (b.order || 0));
+            return connections[0].targetId || null;
         }
-        
         return null;
     }
 
