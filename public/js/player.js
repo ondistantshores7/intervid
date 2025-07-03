@@ -113,7 +113,7 @@ class IVSPlayer {
         this.videoEl.addEventListener('loadedmetadata', () => {
             this.adjustAllButtonFonts();
             if (this.currentSubtitleLang) {
-                this.setSubtitleLanguage(this.currentSubtitleLang);
+                this.applySubtitlePreference();
             }
         });
         // Initial adjustment
@@ -453,6 +453,8 @@ class IVSPlayer {
             this.hls = new Hls();
             this.hls.loadSource(node.url);
             this.hls.attachMedia(this.videoEl);
+            // When HLS subtitles updated, re-apply preference
+            this.hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => this.applySubtitlePreference());
         } else {
             this.videoEl.src = node.url;
         }
@@ -686,8 +688,15 @@ class IVSPlayer {
 
     setSubtitleLanguage(langCode) {
         // Persist preference
-        this.currentSubtitleLang = langCode;
-        if (!this.videoEl || !this.videoEl.textTracks) return;
+        this.currentSubtitleLang = langCode || 'off';
+        if (!this.videoEl) return;
+        if (this.hls && this.hls.subtitleTracks && this.hls.subtitleTracks.length) {
+            // HLS.js subtitles
+            const lang = (this.currentSubtitleLang || '').toLowerCase();
+            const trackIndex = this.hls.subtitleTracks.findIndex(t => (t.lang || '').toLowerCase().startsWith(lang) || (t.name || '').toLowerCase().includes(lang));
+            this.hls.subtitleTrack = lang === 'off' || !lang ? -1 : (trackIndex >= 0 ? trackIndex : 0);
+                }
+        if (!this.videoEl.textTracks) return;
         for (const track of this.videoEl.textTracks) {
             if (!langCode || langCode === 'off') {
                 track.mode = 'disabled';
@@ -697,6 +706,11 @@ class IVSPlayer {
                 track.mode = match ? 'showing' : 'disabled';
             }
         }
+    }
+
+    applySubtitlePreference() {
+        // Re-apply stored preference when tracks change
+        this.setSubtitleLanguage(this.currentSubtitleLang);
     }
 
     handleButtonClick(e) {
@@ -710,7 +724,7 @@ class IVSPlayer {
             // For embed types, do nothing; the embedded content handles interaction.
             return;
         } else if (buttonData.linkType === 'url') {
-            // Check if this button is meant to switch subtitle language by inspecting its text
+            // Subtitle language buttons
             const lowerText = (buttonData.text || '').toLowerCase();
             if (lowerText.includes('español') || lowerText.includes('espanol') || lowerText.includes('spanish')) {
                 this.setSubtitleLanguage('es');
