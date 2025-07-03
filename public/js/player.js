@@ -704,10 +704,23 @@ class IVSPlayer {
         return buttonEl;
     }
 
+    debugSubtitleState(label) {
+        try {
+            const tracks = Array.from(this.videoEl?.textTracks || []).map((t,i)=>({i,mode:t.mode,lang:t.language,label:t.label}));
+            const hlsInfo = this.hls ? {
+                subtitleDisplay: this.hls.subtitleDisplay,
+                subtitleTrack: this.hls.subtitleTrack,
+                tracks: (this.hls.subtitleTracks||[]).map((t,i)=>({i,lang:t.lang,name:t.name}))
+            } : 'no-hls';
+            console.log('[IVS DEBUG]', label, {pref:this.currentSubtitleLang, browserTracks:tracks, hls:hlsInfo});
+        } catch(e){}
+    }
+
     setSubtitleLanguage(langCode, retryLeft = 20) {
         // Persist preference
         this.currentSubtitleLang = langCode;
         localStorage.setItem('ivs_caption_pref', langCode);
+        this.debugSubtitleState('before apply');
         if (!this.videoEl || !this.videoEl.textTracks) return;
         // If no tracks yet, retry later (HLS may still be parsing)
         if (this.videoEl.textTracks.length === 0) {
@@ -729,7 +742,9 @@ class IVSPlayer {
         };
         for (const track of this.videoEl.textTracks) {
             if (!langCode || langCode === 'off') {
-                track.mode = 'disabled';
+                this.hls.subtitleDisplay = false;
+                this.hls.subtitleTrack = -1; // Disable captions
+                track.mode = 'hidden';
             } else {
                 const match = (track.language && track.language.toLowerCase().startsWith(langCode)) ||
                               (track.label && track.label.toLowerCase().includes(langCode));
@@ -747,7 +762,9 @@ class IVSPlayer {
             setTimeout(() => this.setSubtitleLanguage(langCode, retryLeft - 1), 400);
         }
         // Synchronize HLS subtitle track with preference as well
+        this.debugSubtitleState('after browser apply');
         this.applyHlsSubtitlePref();
+        this.debugSubtitleState('after hls apply');
     }
 
     startCaptionPrefWatch() {
@@ -790,6 +807,7 @@ class IVSPlayer {
         if (!this.hls) return;
         const pref = this.currentSubtitleLang;
         if (!pref || pref === 'off') {
+            this.hls.subtitleDisplay = false;
             this.hls.subtitleTrack = -1;
             return;
         }
@@ -807,6 +825,7 @@ class IVSPlayer {
         };
         const tracks = this.hls.subtitleTracks || [];
         const idx = tracks.findIndex(t => langMatches({lang: t.lang, name: t.name}, pref));
+        this.hls.subtitleDisplay = true;
         this.hls.subtitleTrack = idx !== -1 ? idx : -1;
     }
 
@@ -816,12 +835,23 @@ class IVSPlayer {
 
         const buttonId = target.dataset.buttonId;
         const buttonData = this.currentNode.buttons.find(b => b.id === buttonId);
+        // Universal caption language detection
+        if (buttonData && buttonData.text) {
+            const lowerText = buttonData.text.toLowerCase();
+            if (lowerText.includes('español') || lowerText.includes('espanol') || lowerText.includes('spanish')) {
+                this.setSubtitleLanguage('es');
+            } else if (lowerText.includes('english') || lowerText.includes('inglés') || lowerText.includes('ingles')) {
+                this.setSubtitleLanguage('en');
+            } else if (lowerText.includes('off') || lowerText.includes('no captions') || lowerText.includes('sin subtítulos') || lowerText.includes('sin subtitulos')) {
+                this.setSubtitleLanguage('off');
+            }
+        }
 
         if (buttonData.linkType === 'embed') {
             // For embed types, do nothing; the embedded content handles interaction.
             return;
         } else if (buttonData.linkType === 'url') {
-            // Check if this button is meant to switch subtitle language by inspecting its text
+
             const lowerText = (buttonData.text || '').toLowerCase();
             if (lowerText.includes('español') || lowerText.includes('espanol') || lowerText.includes('spanish')) {
                 this.setSubtitleLanguage('es');
