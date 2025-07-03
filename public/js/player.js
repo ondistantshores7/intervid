@@ -453,8 +453,11 @@ class IVSPlayer {
             this.hls = new Hls();
             this.hls.loadSource(node.url);
             this.hls.attachMedia(this.videoEl);
-            // When HLS subtitles updated, re-apply preference
-            this.hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => this.applySubtitlePreference());
+            // When HLS subtitle related events fire, re-apply preference
+            const reapply = () => this.applySubtitlePreference();
+            this.hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, reapply);
+            this.hls.on(Hls.Events.SUBTITLE_TRACK_SWITCH, reapply);
+            this.hls.on(Hls.Events.MANIFEST_PARSED, reapply);
         } else {
             this.videoEl.src = node.url;
         }
