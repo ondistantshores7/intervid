@@ -104,6 +104,15 @@ class IVSPlayer {
 
         this.buttonClickHandler = this.handleButtonClick.bind(this);
         this.buttonsContainer.addEventListener('click', this.buttonClickHandler);
+
+        // ---- Responsive text fitting ----
+        this.fitText = this.fitText.bind(this);
+        this.handleResize = this.handleResize.bind(this);
+        window.addEventListener('resize', this.handleResize);
+        // Re-run when video metadata loads (ensures correct player size)
+        this.videoEl.addEventListener('loadedmetadata', this.handleResize);
+        // Initial fit after current call stack
+        setTimeout(this.handleResize, 0);
         this.videoEndedHandler = this.handleVideoEnd.bind(this);
 
         this.setupHighlighter();
@@ -648,6 +657,8 @@ class IVSPlayer {
         }
         
         this.buttonsContainer.appendChild(buttonEl);
+        // Ensure text fits within its button container after it's in the DOM
+        this.fitText(buttonEl);
         return buttonEl;
     }
 
@@ -743,6 +754,25 @@ class IVSPlayer {
         }
         
         return null;
+    }
+
+    /* ---------------- Text fit helpers ---------------- */
+    handleResize() {
+        if (!this.buttonsContainer) return;
+        this.buttonsContainer.querySelectorAll('.video-overlay-button').forEach(btn => this.fitText(btn));
+    }
+
+    fitText(btn) {
+        if (!btn || btn.classList.contains('embed-container')) return;
+        const maxFont = parseInt(btn.dataset.origFontSize || window.getComputedStyle(btn).fontSize || '24', 10);
+        let fontSize = maxFont;
+        btn.style.fontSize = fontSize + 'px';
+        btn.style.lineHeight = 'normal';
+        const padding = 4; // small safety padding
+        while (fontSize > 10 && (btn.scrollWidth > btn.offsetWidth - padding || btn.scrollHeight > btn.offsetHeight - padding)) {
+            fontSize -= 1;
+            btn.style.fontSize = fontSize + 'px';
+        }
     }
 
     destroy() {
