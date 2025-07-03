@@ -937,6 +937,19 @@ class IVSPlayer {
         btn.style.fontSize = `${newSize}px`;
     }
 
+    initPlayer() {
+        // Initialize player logic here
+        console.log('Initializing player with project data:', this.projectData);
+        // Additional initialization can be added as needed
+        // Load the starting video
+        const startNodeId = this.projectData.startNodeId || (this.projectData.videos && this.projectData.videos.length > 0 ? this.projectData.videos[0].id : null);
+        if (startNodeId) {
+            this.loadVideo(startNodeId);
+        } else {
+            console.error('No start node or video found in project data');
+        }
+    }
+
     /* ---- legacy helpers kept for safety but unused ---- */
     destroy() {
         if (this.hls) {
@@ -995,11 +1008,5 @@ class IVSPlayer {
         } else {
             console.warn('HLS not supported, falling back to regular playback');
         }
-    }
-
-    initPlayer() {
-        // Initialize player logic here
-        console.log('Initializing player with project data:', this.projectData);
-        // Additional initialization can be added as needed
     }
 }
