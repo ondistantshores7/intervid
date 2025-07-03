@@ -693,11 +693,16 @@ class IVSPlayer {
         return buttonEl;
     }
 
-    setSubtitleLanguage(langCode) {
+    setSubtitleLanguage(langCode, retryLeft = 5) {
         // Persist preference
         this.currentSubtitleLang = langCode;
         localStorage.setItem('ivs_caption_pref', langCode);
         if (!this.videoEl || !this.videoEl.textTracks) return;
+        // If tracks not yet available, retry shortly
+        if (this.videoEl.textTracks.length === 0 && retryLeft > 0) {
+            setTimeout(() => this.setSubtitleLanguage(langCode, retryLeft - 1), 300);
+            return;
+        }
         for (const track of this.videoEl.textTracks) {
             if (!langCode || langCode === 'off') {
                 track.mode = 'disabled';
