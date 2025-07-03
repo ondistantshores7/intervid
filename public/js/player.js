@@ -880,31 +880,9 @@ class IVSPlayer {
         }
     }
 
-    /* ---- legacy helpers kept for safety but unused ---- */
-    destroy() {
-        if (this.hls) {
-            this.hls.destroy();
-        }
-        if (this.videoEl) {
-            this.videoEl.pause();
-            this.videoEl.src = '';
-            if (this.timeUpdateHandler) {
-                this.videoEl.removeEventListener('timeupdate', this.timeUpdateHandler);
-            }
-            if (this.videoEndedHandler) { // Remove ended listener
-                this.videoEl.removeEventListener('ended', this.videoEndedHandler);
-            }
-        }
-        if (this.buttonsContainer) {
-            this.buttonsContainer.removeEventListener('click', this.buttonClickHandler);
-            this.buttonsContainer.innerHTML = '';
-        }
-        console.log('Player destroyed.');
-    }
-
     initHLS() {
         // Check for HLS.js support and initialize if available
-        if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+        if (typeof Hls !== 'undefined' && Hls && Hls.isSupported && Hls.isSupported()) {
             this.hls = new Hls({
                 enableWorker: true,
                 lowLatencyMode: true,
@@ -938,5 +916,27 @@ class IVSPlayer {
         } else {
             console.warn('HLS not supported, falling back to regular playback');
         }
+    }
+
+    /* ---- legacy helpers kept for safety but unused ---- */
+    destroy() {
+        if (this.hls) {
+            this.hls.destroy();
+        }
+        if (this.videoEl) {
+            this.videoEl.pause();
+            this.videoEl.src = '';
+            if (this.timeUpdateHandler) {
+                this.videoEl.removeEventListener('timeupdate', this.timeUpdateHandler);
+            }
+            if (this.videoEndedHandler) { // Remove ended listener
+                this.videoEl.removeEventListener('ended', this.videoEndedHandler);
+            }
+        }
+        if (this.buttonsContainer) {
+            this.buttonsContainer.removeEventListener('click', this.buttonClickHandler);
+            this.buttonsContainer.innerHTML = '';
+        }
+        console.log('Player destroyed.');
     }
 }
