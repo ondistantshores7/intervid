@@ -54,17 +54,9 @@ async function initPlayer(container, projectId) {
             embedContainer.innerHTML = playerHTML;
             
             // Initialize player
-            const videoEl = embedContainer.querySelector('#preview-video');
-            if (videoEl) {
-                try {
-                    console.log('Creating IVSPlayer instance...');
-                    new IVSPlayer(videoEl, projectData);
-                } catch (err) {
-                    console.error('Error creating IVSPlayer:', err);
-                }
-            } else {
-                console.error('Video element not found in embed container');
-            }
+            const startNodeId = projectData.startNodeId || (projectData.videos && projectData.videos.length > 0 ? projectData.videos[0].id : null);
+            console.log('Using start node:', startNodeId);
+            new IVSPlayer(embedContainer, projectData, startNodeId);
         } else {
             console.error('Could not find embed container within:', container);
         }
@@ -89,28 +81,26 @@ const hexToRgba = (hex, opacity) => {
 };
 
 class IVSPlayer {
-    constructor(videoEl, projectData) {
-        this.videoEl = videoEl;
-        this.projectData = projectData;
-        this.videoContainer = videoEl.parentElement;
-        this.buttonsContainer = document.createElement('div');
-        this.buttonsContainer.className = 'video-buttons-container';
-        this.videoContainer.appendChild(this.buttonsContainer);
-        
-        // Initialize HLS if available (for Cloudflare Stream) - call after method definition
-        if (typeof this.initHLS === 'function') {
-            this.initHLS();
-        } else {
-            console.warn('initHLS method not found, skipping HLS initialization');
+    constructor(overlayElement, projectData, startNodeId) {
+        this.overlay = overlayElement;
+        this.project = projectData;
+        this.videoEl = this.overlay.querySelector('#preview-video');
+        this.buttonsContainer = this.overlay.querySelector('.preview-buttons-overlay');
+        // --- Highlighter elements ---
+        this.canvas = null;
+        this.ctx = null;
+        this.isDrawing = false;
+        this.isHighlightMode = false;
+        this.hls = null;
+        this.timeUpdateHandler = null;
+        this.loopCount = 0; // Track number of loops for the current node
+        this.activeButtons = new Map(); // Track active buttons and their timeouts
+        this.animatedButtons = new Set(); // Track which buttons have been animated in
+
+        if (!this.videoEl || !this.buttonsContainer) {
+            console.error('Player elements not found in the overlay.');
+            return;
         }
-
-        // Setup controls container
-        this.controlsContainer = document.createElement('div');
-        this.controlsContainer.className = 'video-controls-container';
-        this.videoContainer.appendChild(this.controlsContainer);
-
-        // Setup captions
-        this.setupCaptions();
 
         this.buttonClickHandler = this.handleButtonClick.bind(this);
         this.buttonsContainer.addEventListener('click', this.buttonClickHandler);
@@ -118,152 +108,23 @@ class IVSPlayer {
         // Responsive font adjustment
         this.adjustAllButtonFonts = this.adjustAllButtonFonts.bind(this);
         window.addEventListener('resize', this.adjustAllButtonFonts);
-        this.videoEl.addEventListener('loadedmetadata', this.adjustAllButtonFonts);
+        this.videoEl.addEventListener('loadedmetadata', () => {
+            this.adjustAllButtonFonts();
+            // Try to set default subtitle language to English if available
+            this.setSubtitleLanguage('en');
+        });
         // Initial adjustment
         setTimeout(this.adjustAllButtonFonts, 0);
 
         this.videoEndedHandler = this.handleVideoEnd.bind(this);
 
         this.setupHighlighter();
-        this.initPlayer();
-    }
-
-    setupCaptions() {
-        this.availableLanguages = this.getAvailableLanguages();
-        this.captionsActive = false;
-        this.currentLanguage = localStorage.getItem('preferredCaptionLanguage') || null;
-
-        // Create captions button
-        this.captionsButton = document.createElement('button');
-        this.captionsButton.className = 'video-control-button captions-button';
-        this.captionsButton.innerText = 'CC';
-        this.captionsButton.title = 'Toggle Captions';
-        this.captionsButton.setAttribute('aria-label', 'Toggle Captions');
-        this.captionsButton.setAttribute('aria-haspopup', 'true');
-        this.controlsContainer.appendChild(this.captionsButton);
-
-        // Create captions menu
-        this.captionsMenu = document.createElement('div');
-        this.captionsMenu.className = 'captions-menu';
-        this.captionsMenu.setAttribute('role', 'menu');
-        this.captionsMenu.style.display = 'none';
-        this.controlsContainer.appendChild(this.captionsMenu);
-
-        // Disable or hide button if no captions available
-        if (this.availableLanguages.length === 0) {
-            this.captionsButton.style.display = 'none';
-        } else {
-            this.updateCaptionsMenu();
-            this.captionsButton.addEventListener('click', () => this.toggleCaptionsMenu());
-        }
-
-        // Load captions if a preferred language is set
-        if (this.currentLanguage && this.availableLanguages.includes(this.currentLanguage)) {
-            this.loadCaptions(this.currentLanguage);
-            this.captionsActive = true;
-            this.captionsButton.classList.add('active');
-        }
-    }
-
-    getAvailableLanguages() {
-        // For now, simulate available languages based on projectData or video metadata
-        // In a real implementation, this would come from Cloudflare API or video metadata
-        const langs = [];
-        if (this.projectData && this.projectData.video && this.projectData.video.subtitles) {
-            if (this.projectData.video.subtitles.en) langs.push('en');
-            if (this.projectData.video.subtitles.es) langs.push('es');
-        }
-        return langs;
-    }
-
-    updateCaptionsMenu() {
-        this.captionsMenu.innerHTML = '';
-        // Add 'Off' option
-        const offItem = document.createElement('div');
-        offItem.className = 'caption-item';
-        offItem.setAttribute('role', 'menuitemradio');
-        offItem.setAttribute('aria-checked', this.captionsActive ? 'false' : 'true');
-        offItem.innerText = 'Off';
-        offItem.addEventListener('click', () => {
-            this.disableCaptions();
-            this.toggleCaptionsMenu();
-        });
-        this.captionsMenu.appendChild(offItem);
-
-        // Add language options
-        this.availableLanguages.forEach(lang => {
-            const item = document.createElement('div');
-            item.className = 'caption-item';
-            item.setAttribute('role', 'menuitemradio');
-            item.setAttribute('aria-checked', this.captionsActive && this.currentLanguage === lang ? 'true' : 'false');
-            item.innerText = lang === 'en' ? 'English' : 'Spanish';
-            item.addEventListener('click', () => {
-                this.loadCaptions(lang);
-                this.toggleCaptionsMenu();
-            });
-            this.captionsMenu.appendChild(item);
-        });
-    }
-
-    toggleCaptionsMenu() {
-        const isExpanded = this.captionsMenu.style.display === 'block';
-        this.captionsButton.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
-        this.captionsMenu.style.display = isExpanded ? 'none' : 'block';
-        this.updateCaptionsMenu();
-    }
-
-    loadCaptions(lang) {
-        // Remove existing tracks
-        const existingTracks = this.videoEl.querySelectorAll('track[kind="subtitles"]');
-        existingTracks.forEach(track => {
-            track.mode = 'disabled';
-            track.remove();
-        });
-
-        this.captionsActive = true;
-        this.currentLanguage = lang;
-        this.captionsButton.classList.add('active');
-        localStorage.setItem('preferredCaptionLanguage', lang);
-
-        // Construct VTT URL (placeholder - adapt to actual Cloudflare Stream URL structure)
-        // In a real implementation, this URL would be fetched from Cloudflare API or metadata
-        const videoId = this.projectData.video ? this.projectData.video.id : (this.projectData.currentVideoId || '');
-        let vttUrl = '';
-        if (lang === 'en') {
-            vttUrl = `https://videodelivery.net/${videoId}/subtitles/en.vtt`;
-        } else if (lang === 'es') {
-            vttUrl = `https://videodelivery.net/${videoId}/subtitles/es.vtt`;
-        }
-
-        if (vttUrl) {
-            // Add new track
-            const track = document.createElement('track');
-            track.kind = 'subtitles';
-            track.src = vttUrl;
-            track.srclang = lang;
-            track.label = lang === 'en' ? 'English' : 'Spanish';
-            track.mode = 'showing';
-            this.videoEl.appendChild(track);
-        } else {
-            console.error(`No VTT URL for language: ${lang}`);
-        }
-    }
-
-    disableCaptions() {
-        this.captionsActive = false;
-        this.captionsButton.classList.remove('active');
-        const tracks = this.videoEl.querySelectorAll('track[kind="subtitles"]');
-        tracks.forEach(track => {
-            track.mode = 'disabled';
-            track.remove();
-        });
-        localStorage.removeItem('preferredCaptionLanguage');
-        this.currentLanguage = null;
+        this.loadVideo(startNodeId);
     }
 
     /* ---------------- Highlighter Setup ---------------- */
     setupHighlighter() {
-        const container = this.videoContainer;
+        const container = this.overlay.querySelector('#video-container');
         if (!container || !this.videoEl) return;
 
         // Create canvas overlay only once
@@ -554,54 +415,59 @@ class IVSPlayer {
     /* --------------------------------------------------- */
 
     loadVideo(nodeId) {
-        console.log('Loading video for node:', nodeId);
-        const node = this.projectData.videos.find(v => v.id === nodeId);
+        // Clear any existing timeouts
+        this.clearAllButtonTimeouts();
+        this.activeButtons.clear();
+        // Hide staff overlay (if visible) and clear highlights when changing videos
+        if (this.staffOverlay) {
+            this.staffOverlay.style.display = 'none';
+        }
+        if (this.ctx && this.canvas) {
+            this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+        }
+        this.isHighlightMode = false;
+        if (this.canvas) this.canvas.style.pointerEvents = 'none';
+        if (this.colorPicker) this.colorPicker.style.display = 'none';
+        if (this.clearHighlightsBtn) this.clearHighlightsBtn.style.display = 'none';
+        if (this.highlighterBtn) this.highlighterBtn.classList.remove('active');
+
+        this.animatedButtons.clear(); // Reset animated buttons for new video
+        
+        const node = this.project.videos.find(v => v.id === nodeId);
         if (!node) {
-            console.error('Video node not found:', nodeId);
+            console.error('Node not found:', nodeId);
             return;
         }
         this.currentNode = node;
-        this.loopCount = 0; // Reset loop count for new video
-
-        // Clear existing buttons
+        this.loopCount = 0; // Reset loop counter when loading a new node
         this.buttonsContainer.innerHTML = '';
-        this.activeButtons.clear();
-        this.animatedButtons.clear();
 
-        // Set video source
-        const videoUrl = node.hls_url || node.url;
-        if (videoUrl) {
-            if (this.hls) {
-                console.log('Loading HLS stream:', videoUrl);
-                this.hls.loadSource(videoUrl);
-                this.hls.startLoad();
-            } else {
-                console.log('Loading direct video URL:', videoUrl);
-                this.videoEl.src = videoUrl;
-                this.videoEl.load();
-            }
+        if (this.hls) {
+            this.hls.destroy();
+        }
+
+        if (Hls.isSupported() && node.url.includes('.m3u8')) {
+            this.hls = new Hls();
+            this.hls.loadSource(node.url);
+            this.hls.attachMedia(this.videoEl);
         } else {
-            console.error('No video URL found for node:', nodeId);
+            this.videoEl.src = node.url;
         }
 
-        // Add event listener for video end if not already added
-        if (!this.videoEl.hasAttribute('data-end-listener')) {
-            this.videoEl.addEventListener('ended', this.videoEndedHandler);
-            this.videoEl.setAttribute('data-end-listener', 'true');
+        if (this.timeUpdateHandler) {
+            this.videoEl.removeEventListener('timeupdate', this.timeUpdateHandler);
         }
 
-        // Create buttons for this video
-        if (node.buttons && node.buttons.length > 0) {
-            node.buttons.forEach(btnData => {
-                this.createButton(btnData);
-            });
-        }
+        this.timeUpdateHandler = this.updateButtons.bind(this);
+        this.videoEl.addEventListener('timeupdate', this.timeUpdateHandler);
 
-        // Setup time update handler for button animations if not already added
-        if (!this.timeUpdateHandler) {
-            this.timeUpdateHandler = this.handleTimeUpdate.bind(this);
-            this.videoEl.addEventListener('timeupdate', this.timeUpdateHandler);
+        // Handle video ending
+        if (this.videoEndedHandler) {
+            this.videoEl.removeEventListener('ended', this.videoEndedHandler);
         }
+        this.videoEl.addEventListener('ended', this.videoEndedHandler);
+
+        this.videoEl.play().catch(e => console.error('Preview playback failed:', e));
     }
     
     clearAllButtonTimeouts() {
@@ -716,42 +582,95 @@ class IVSPlayer {
         }, duration);
     }
 
-    createButton(btnData) {
-        if (!btnData || !btnData.id) return null;
-        console.log('Creating button:', btnData);
-        const buttonEl = document.createElement('button');
-        buttonEl.className = 'video-overlay-button';
-        buttonEl.id = `btn-${btnData.id}`;
-        buttonEl.dataset.nodeId = btnData.targetNodeId || '';
-        buttonEl.dataset.url = btnData.url || '';
-        buttonEl.dataset.action = btnData.action || 'next';
-        buttonEl.innerText = btnData.text || 'Next';
-        
-        // Apply styles from btnData if available
-        if (btnData.style) {
-            if (btnData.style.position) {
-                buttonEl.style.left = btnData.style.position.left ? `${btnData.style.position.left}px` : 'auto';
-                buttonEl.style.top = btnData.style.position.top ? `${btnData.style.position.top}px` : 'auto';
-                buttonEl.style.right = btnData.style.position.right ? `${btnData.style.position.right}px` : 'auto';
-                buttonEl.style.bottom = btnData.style.position.bottom ? `${btnData.style.position.bottom}px` : 'auto';
-            }
-            if (btnData.style.size) {
-                buttonEl.style.width = btnData.style.size.width ? `${btnData.style.size.width}px` : 'auto';
-                buttonEl.style.height = btnData.style.size.height ? `${btnData.style.size.height}px` : 'auto';
-            }
-            if (btnData.style.color) {
-                if (btnData.style.color.background) {
-                    buttonEl.style.backgroundColor = btnData.style.color.background;
-                }
-                if (btnData.style.color.text) {
-                    buttonEl.style.color = btnData.style.color.text;
-                }
-            }
-            if (btnData.style.font) {
-                buttonEl.style.fontSize = btnData.style.font.size ? `${btnData.style.font.size}px` : '16px';
-            }
+    createButton(buttonData) {
+        // Remove any existing button with the same ID
+        const existingButton = this.buttonsContainer.querySelector(`[data-button-id='${buttonData.id}']`);
+        if (existingButton) {
+            existingButton.remove();
         }
         
+        const buttonEl = document.createElement('button');
+        buttonEl.className = 'video-overlay-button';
+        // Ensure gentle hover scale animation even if external CSS not loaded
+        buttonEl.style.transition = 'transform 0.3s cubic-bezier(0.25,0.8,0.25,1)';
+        // Hover pulse handled by CSS
+        buttonEl.dataset.buttonId = buttonData.id;
+
+        // Apply base styles
+        const buttonStyle = {
+            position: 'absolute',
+            left: buttonData.position?.x || '50%',
+            top: buttonData.position?.y || '50%',
+            pointerEvents: 'auto',
+            boxSizing: 'border-box',
+            ...buttonData.style // User-defined styles
+        };
+
+        if (buttonData.linkType === 'embed') {
+            buttonEl.classList.add('embed-container');
+            buttonEl.innerHTML = buttonData.embedCode || '';
+            // For embeds, we don't want flex centering, we want the content to fill the space.
+        } else {
+            buttonEl.textContent = buttonData.text;
+            // For text buttons, apply flex for centering
+            Object.assign(buttonStyle, {
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            });
+        }
+        
+        // Apply the base styles
+        // Ensure font and opacity are explicitly applied
+        if (buttonStyle.fontFamily) buttonEl.style.fontFamily = buttonStyle.fontFamily;
+        if (buttonStyle.fontSize) {
+            // If fontSize specified in px, convert to responsive clamp
+            const match = /^([0-9.]+)px$/.exec(buttonStyle.fontSize);
+            if (match) {
+                const px = parseFloat(match[1]);
+                const minPx = Math.max(10, Math.round(px * 0.6));
+                // Use viewport width scaling: 1vw roughly equals 1% of viewport width
+                // Coefficient 2vw provides nice scaling; tweak based on original size
+                buttonEl.style.fontSize = `clamp(${minPx}px, 2vw, ${px}px)`;
+                buttonEl.dataset.origFontSize = `${px}`;
+            } else {
+                buttonEl.style.fontSize = buttonStyle.fontSize;
+            }
+            // lineHeight will follow font-size automatically
+        }
+        if (buttonStyle.opacity !== undefined) buttonEl.style.opacity = buttonStyle.opacity;
+        Object.assign(buttonEl.style, buttonStyle);
+
+        // Apply shadow style
+        if (buttonData.shadow && buttonData.shadow.enabled) {
+            const shadow = buttonData.shadow;
+            const rgbaColor = hexToRgba(shadow.color || '#000000', shadow.opacity !== undefined ? shadow.opacity : 0.5);
+            buttonEl.style.boxShadow = `${shadow.hOffset || 2}px ${shadow.vOffset || 2}px ${shadow.blur || 4}px ${shadow.spread || 0}px ${rgbaColor}`;
+        } else {
+            buttonEl.style.boxShadow = 'none';
+        }
+        
+        // Apply animation if specified
+        if (buttonData.animation?.type !== 'none') {
+            const animClass = buttonData.animation.type === 'slide' 
+                ? `anim-slide-${buttonData.animation.direction || 'left'}` 
+                : 'anim-fade-in';
+                
+            buttonEl.classList.add(animClass);
+            buttonEl.style.animationDuration = `${buttonData.animation.duration || 1}s`;
+            // Remove entrance animation class after it finishes so it doesn't replay on hover/unhover cycles
+            buttonEl.addEventListener('animationend', () => {
+                buttonEl.classList.remove(animClass);
+            }, { once: true });
+            
+            // Force reflow to ensure animation plays
+            void buttonEl.offsetWidth;
+        } else {
+            // If no animation, just show the button
+            buttonEl.style.opacity = '1';
+        }
+        
+        this.buttonsContainer.appendChild(buttonEl);
         // Store original font px and adjust for current viewport
         if (!buttonEl.dataset.origFontPx) {
             const m = /([0-9.]+)px/.exec(buttonEl.style.fontSize || '');
@@ -759,93 +678,116 @@ class IVSPlayer {
         }
         this.adjustFontSize(buttonEl);
 
-        this.buttonsContainer.appendChild(buttonEl);
         return buttonEl;
     }
 
-    handleTimeUpdate() {
-        if (!this.currentNode || !this.currentNode.buttons) return;
-        const currentTime = this.videoEl.currentTime;
-        this.currentNode.buttons.forEach(btnData => {
-            if (!btnData || !btnData.time) return;
-            const startTime = btnData.time.start || 0;
-            const endTime = btnData.time.end || Infinity;
-            const buttonEl = this.buttonsContainer.querySelector(`#btn-${btnData.id}`);
-            if (!buttonEl) return;
-            if (currentTime >= startTime && currentTime <= endTime) {
-                if (!buttonEl.classList.contains('visible')) {
-                    buttonEl.classList.add('visible');
-                    this.activeButtons.set(btnData.id, buttonEl);
-                    // Apply animation if specified and not yet animated
-                    if (btnData.animation && !this.animatedButtons.has(btnData.id)) {
-                        const animClass = `anim-${btnData.animation}`;
-                        buttonEl.classList.add(animClass);
-                        this.animatedButtons.add(btnData.id);
-                    }
-                }
-            } else {
-                if (buttonEl.classList.contains('visible')) {
-                    buttonEl.classList.remove('visible');
-                    this.activeButtons.delete(btnData.id);
-                }
-            }
-        });
+    setSubtitleLanguage(langCode) {
+        if (!this.videoEl || !this.videoEl.textTracks) return;
+        for (const track of this.videoEl.textTracks) {
+            track.mode = (track.language && track.language.toLowerCase().startsWith(langCode)) ||
+                        (track.label && track.label.toLowerCase().includes(langCode)) ? 'showing' : 'disabled';
+        }
     }
 
-    handleButtonClick(event) {
-        const buttonEl = event.target.closest('.video-overlay-button');
-        if (!buttonEl) return;
-        const targetNodeId = buttonEl.dataset.nodeId || '';
-        const url = buttonEl.dataset.url || '';
-        const action = buttonEl.dataset.action || 'next';
-        console.log(`Button clicked: target=${targetNodeId}, action=${action}, url=${url}`);
-        if (action === 'next' && targetNodeId) {
-            this.loadVideo(targetNodeId);
-            this.videoEl.play().catch(err => console.error('Play failed:', err));
-        } else if (action === 'url' && url) {
-            window.open(url, '_blank');
-        } else if (action === 'restart') {
-            if (this.currentNode) {
-                this.loadVideo(this.currentNode.id);
-                this.videoEl.play().catch(err => console.error('Play failed:', err));
+    handleButtonClick(e) {
+        const target = e.target.closest('.video-overlay-button');
+        if (!target) return;
+
+        const buttonId = target.dataset.buttonId;
+        const buttonData = this.currentNode.buttons.find(b => b.id === buttonId);
+
+        if (buttonData.linkType === 'embed') {
+            // For embed types, do nothing; the embedded content handles interaction.
+            return;
+        } else if (buttonData.linkType === 'url') {
+            // Check if this button is meant to switch subtitle language by inspecting its text
+            const lowerText = (buttonData.text || '').toLowerCase();
+            if (lowerText.includes('español') || lowerText.includes('espanol') || lowerText.includes('spanish')) {
+                this.setSubtitleLanguage('es');
+            } else if (lowerText.includes('english') || lowerText.includes('inglés') || lowerText.includes('ingles')) {
+                this.setSubtitleLanguage('en');
             }
+
+            let url = buttonData.target.trim();
+            // Ensure the URL has a protocol (default to https:// if missing)
+            if (url && !/^https?:\/\//i.test(url)) {
+                url = 'https://' + url;
+            }
+            window.open(url, '_blank');
+        } else {
+            this.loadVideo(buttonData.target);
         }
     }
 
     handleVideoEnd() {
-        console.log('Video ended. Loop count:', this.loopCount);
-        if (this.currentNode) {
-            if (this.currentNode.loop && this.currentNode.loop.enabled && this.loopCount < (this.currentNode.loop.count || 1)) {
-                console.log('Looping video.');
+        console.log('Video ended. Current node endAction:', this.currentNode.endAction);
+        const endAction = this.currentNode.endAction;
+
+        if (!endAction || !endAction.type) {
+            console.log('No end action defined or type is missing for node:', this.currentNode.id);
+            return; 
+        }
+
+        switch (endAction.type) {
+            case 'loop':
                 this.loopCount++;
-                this.videoEl.currentTime = 0;
-                this.videoEl.play().catch(err => console.error('Play failed:', err));
-            } else {
-                const nextNodeId = this.findNextNodeId();
-                if (nextNodeId) {
-                    console.log('Moving to next node:', nextNodeId);
-                    this.loadVideo(nextNodeId);
-                    this.videoEl.play().catch(err => console.error('Play failed:', err));
+                console.log(`Looping video (${this.loopCount}/3)`);
+                if (this.loopCount < 3) {
+                    // If we haven't reached 3 loops, play again
+                    this.videoEl.currentTime = 0;
+                    this.videoEl.play().catch(e => console.error('Loop playback failed:', e));
                 } else {
-                    console.log('No next node found.');
+                    // After 3 loops, reset counter and continue to next action if any
+                    this.loopCount = 0;
+                    // If there's a next node, play it
+                    const nextNodeId = this.findNextNodeId();
+                    if (nextNodeId) {
+                        this.loadVideo(nextNodeId);
+                    }
                 }
-            }
+                break;
+            case 'node':
+                if (endAction.targetNode) {
+                    console.log(`End action: Play node ${endAction.targetNode}`);
+                    this.loadVideo(endAction.targetNode);
+                } else {
+                    console.warn('End action type is "node", but no targetNode specified.');
+                }
+                break;
+            case 'url':
+                if (endAction.targetUrl) {
+                    console.log(`End action: Open URL ${endAction.targetUrl}`);
+                    window.open(endAction.targetUrl, '_blank');
+                } else {
+                    console.warn('End action type is "url", but no targetUrl specified.');
+                }
+                break;
+            case 'repeat':
+                console.log('End action: Repeat video.');
+                this.videoEl.currentTime = 0;
+                this.videoEl.play().catch(e => console.error('Repeat playback failed:', e));
+                break;
+            case 'none':
+            default:
+                console.log('End action: Do nothing.');
+                break;
         }
     }
 
+    // Find the next node in the flow (for after loop completes)
     findNextNodeId() {
-        if (!this.currentNode || !this.projectData.connections) return null;
+        if (!this.currentNode || !this.project.connections) return null;
         
         // Find connections where this node is the source
-        const connections = this.projectData.connections.filter(
+        const connections = this.project.connections.filter(
             conn => conn.sourceId === this.currentNode.id
         );
         
         if (connections.length > 0) {
-            // Sort by order if available, or use first connection
-            connections.sort((a, b) => (a.order || 0) - (b.order || 0));
-            return connections[0].targetId || null;
+            // Just take the first connection for simplicity
+            return connections[0].targetId;
         }
+        
         return null;
     }
 
@@ -875,70 +817,24 @@ class IVSPlayer {
         btn.style.fontSize = `${newSize}px`;
     }
 
-    initPlayer() {
-        // Initialize player logic here
-        console.log('Initializing player with project data:', this.projectData);
-        // Additional initialization can be added as needed
-        // Load the starting video
-        const startNodeId = this.projectData.startNodeId || (this.projectData.videos && this.projectData.videos.length > 0 ? this.projectData.videos[0].id : null);
-        if (startNodeId) {
-            this.loadVideo(startNodeId);
-        } else {
-            console.error('No start node or video found in project data');
-        }
-    }
-
-    initHLS() {
-        // Check for HLS.js support and initialize if available
-        if (typeof Hls !== 'undefined' && Hls && Hls.isSupported && Hls.isSupported()) {
-            this.hls = new Hls({
-                enableWorker: true,
-                lowLatencyMode: true,
-            });
-            this.hls.attachMedia(this.videoEl);
-            this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                console.log('HLS manifest parsed');
-            });
-            this.hls.on(Hls.Events.ERROR, (event, data) => {
-                if (data.fatal) {
-                    switch (data.type) {
-                        case Hls.ErrorTypes.NETWORK_ERROR:
-                            console.error('Network error:', data);
-                            this.hls.startLoad();
-                            break;
-                        case Hls.ErrorTypes.MEDIA_ERROR:
-                            console.error('Media error:', data);
-                            this.hls.recoverMediaError();
-                            break;
-                        default:
-                            console.error('Unrecoverable HLS error:', data);
-                            this.hls.destroy();
-                            this.hls = null;
-                            break;
-                    }
-                }
-            });
-        } else if (this.videoEl.canPlayType('application/vnd.apple.mpegurl')) {
-            // For Safari and iOS devices
-            console.log('Using native HLS playback');
-        } else {
-            console.warn('HLS not supported, falling back to regular playback');
-        }
-    }
-
+    /* ---- legacy helpers kept for safety but unused ---- */
     destroy() {
         if (this.hls) {
             this.hls.destroy();
-            this.hls = null;
         }
         if (this.videoEl) {
-            this.videoEl.removeEventListener('ended', this.videoEndedHandler);
-            this.videoEl.removeEventListener('timeupdate', this.timeUpdateHandler);
-            this.videoEl.removeEventListener('loadedmetadata', this.adjustAllButtonFonts);
+            this.videoEl.pause();
+            this.videoEl.src = '';
+            if (this.timeUpdateHandler) {
+                this.videoEl.removeEventListener('timeupdate', this.timeUpdateHandler);
+            }
+            if (this.videoEndedHandler) { // Remove ended listener
+                this.videoEl.removeEventListener('ended', this.videoEndedHandler);
+            }
         }
-        window.removeEventListener('resize', this.adjustAllButtonFonts);
         if (this.buttonsContainer) {
             this.buttonsContainer.removeEventListener('click', this.buttonClickHandler);
+            this.buttonsContainer.innerHTML = '';
         }
         console.log('Player destroyed.');
     }
