@@ -460,6 +460,9 @@ class IVSPlayer {
 
         if (Hls.isSupported() && node.url.includes('.m3u8')) {
             this.hls = new Hls();
+            // Re-apply caption preference whenever HLS updates subtitle tracks
+            this.hls.on(Hls.Events.MANIFEST_PARSED, () => this.applyHlsSubtitlePref());
+            this.hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => this.applyHlsSubtitlePref());
             this.hls.loadSource(node.url);
             this.hls.attachMedia(this.videoEl);
         } else {
@@ -712,6 +715,21 @@ class IVSPlayer {
                 track.mode = match ? 'showing' : 'disabled';
             }
         }
+        // Synchronize HLS subtitle track with preference as well
+        this.applyHlsSubtitlePref();
+    }
+
+    applyHlsSubtitlePref() {
+        if (!this.hls) return;
+        const pref = this.currentSubtitleLang;
+        if (!pref || pref === 'off') {
+            this.hls.subtitleTrack = -1;
+            return;
+        }
+        const tracks = this.hls.subtitleTracks || [];
+        const idx = tracks.findIndex(t => (t.lang && t.lang.toLowerCase().startsWith(pref)) ||
+                                         (t.name && t.name.toLowerCase().includes(pref)));
+        this.hls.subtitleTrack = idx !== -1 ? idx : -1;
     }
 
     handleButtonClick(e) {
