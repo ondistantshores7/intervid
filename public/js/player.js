@@ -780,8 +780,7 @@ class IVSPlayer {
         const origW = parseFloat(btn.dataset.origButtonW) || 1;
         const currentW = btn.offsetWidth || origW;
         const scale = currentW / origW;
-        const minRatio = 0.5; // never drop below 50% of original
-        const newSize = Math.max(origPx * minRatio, origPx * scale);
+        const newSize = origPx * scale;
         btn.style.fontSize = `${newSize}px`;
     }
 
