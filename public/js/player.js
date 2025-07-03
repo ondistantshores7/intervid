@@ -954,4 +954,48 @@ class IVSPlayer {
         }
         console.log('Player destroyed.');
     }
+
+    initHLS() {
+        // Check for HLS.js support and initialize if available
+        if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+            this.hls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: true,
+            });
+            this.hls.attachMedia(this.videoEl);
+            this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                console.log('HLS manifest parsed');
+            });
+            this.hls.on(Hls.Events.ERROR, (event, data) => {
+                if (data.fatal) {
+                    switch (data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            console.error('Network error:', data);
+                            this.hls.startLoad();
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            console.error('Media error:', data);
+                            this.hls.recoverMediaError();
+                            break;
+                        default:
+                            console.error('Unrecoverable HLS error:', data);
+                            this.hls.destroy();
+                            this.hls = null;
+                            break;
+                    }
+                }
+            });
+        } else if (this.videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+            // For Safari and iOS devices
+            console.log('Using native HLS playback');
+        } else {
+            console.warn('HLS not supported, falling back to regular playback');
+        }
+    }
+
+    initPlayer() {
+        // Initialize player logic here
+        console.log('Initializing player with project data:', this.projectData);
+        // Additional initialization can be added as needed
+    }
 }
