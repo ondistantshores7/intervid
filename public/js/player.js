@@ -735,22 +735,35 @@ class IVSPlayer {
 
     handleButtonClick(e) {
         const target = e.target.closest('.video-overlay-button');
-        if (!target) return;
+        if (!target) {
+            console.log('No button target found for click event');
+            return;
+        }
 
         const buttonId = target.dataset.buttonId;
         const buttonData = this.currentNode.buttons.find(b => b.id === buttonId);
+        if (!buttonData) {
+            console.log('No button data found for ID: ' + buttonId);
+            return;
+        }
+        console.log('Button clicked: ' + (buttonData.text || 'Unnamed') + ', LinkType: ' + buttonData.linkType);
 
         if (buttonData.linkType === 'embed') {
             // For embed types, do nothing; the embedded content handles interaction.
+            console.log('Embed button clicked, no action taken');
             return;
         } else if (buttonData.linkType === 'url') {
             // Subtitle language buttons
             const lowerText = (buttonData.text || '').toLowerCase();
+            console.log('Checking text for subtitle: ' + lowerText);
             if (lowerText.includes('español') || lowerText.includes('espanol') || lowerText.includes('spanish')) {
+                console.log('Setting subtitle to Spanish');
                 this.setSubtitleLanguage('es');
             } else if (lowerText.includes('english') || lowerText.includes('inglés') || lowerText.includes('ingles')) {
+                console.log('Setting subtitle to English');
                 this.setSubtitleLanguage('en');
             } else if (lowerText.includes('off') || lowerText.includes('no captions') || lowerText.includes('sin subtítulos')) {
+                console.log('Setting subtitle to Off');
                 this.setSubtitleLanguage('off');
             } else {
                 console.log('Unhandled button text for subtitle: ' + buttonData.text);
@@ -761,8 +774,10 @@ class IVSPlayer {
             if (url && !/^https?:\/\//i.test(url)) {
                 url = 'https://' + url;
             }
+            console.log('Opening URL: ' + url);
             window.open(url, '_blank');
         } else {
+            console.log('Loading video node: ' + buttonData.target);
             this.loadVideo(buttonData.target);
         }
     }
