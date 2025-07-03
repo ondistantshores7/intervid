@@ -132,6 +132,9 @@ class IVSPlayer {
 
         this.setupHighlighter();
         this.loadVideo(startNodeId);
+
+        // Periodically enforce caption preference (some browsers/hls override)
+        this.startCaptionPrefWatch();
     }
 
     /* ---------------- Highlighter Setup ---------------- */
@@ -463,10 +466,15 @@ class IVSPlayer {
             // Re-apply caption preference whenever HLS updates subtitle tracks
             this.hls.on(Hls.Events.MANIFEST_PARSED, () => this.applyHlsSubtitlePref());
             this.hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => this.applyHlsSubtitlePref());
+            this.hls.on(Hls.Events.SUBTITLE_TRACK_SWITCH, () => this.applyHlsSubtitlePref());
             this.hls.loadSource(node.url);
             this.hls.attachMedia(this.videoEl);
         } else {
             this.videoEl.src = node.url;
+        }
+        // Apply caption preference immediately (will retry internally)
+        if (this.currentSubtitleLang) {
+            this.setSubtitleLanguage(this.currentSubtitleLang);
         }
 
         if (this.timeUpdateHandler) {
@@ -707,6 +715,18 @@ class IVSPlayer {
             return;
         }
         // Apply to browser tracks
+        const langMatches = (trk, pref) => {
+            if (!trk) return false;
+            const lcPref = (pref || '').toLowerCase();
+            const lcLang = (trk.language || '').toLowerCase();
+            const lcLabel = (trk.label || '').toLowerCase();
+            if (lcPref === 'en') {
+                return lcLang.startsWith('en') || lcLang.startsWith('eng') || lcLabel.includes('english') || lcLabel.includes('inglés') || lcLabel.includes('ingles');
+            } else if (lcPref === 'es') {
+                return lcLang.startsWith('es') || lcLang.startsWith('spa') || lcLabel.includes('español') || lcLabel.includes('spanish') || lcLabel.includes('espanol');
+            }
+            return false;
+        };
         for (const track of this.videoEl.textTracks) {
             if (!langCode || langCode === 'off') {
                 track.mode = 'disabled';
@@ -730,6 +750,42 @@ class IVSPlayer {
         this.applyHlsSubtitlePref();
     }
 
+    startCaptionPrefWatch() {
+        if (this.captionWatchTimer) clearInterval(this.captionWatchTimer);
+        this.captionWatchTimer = setInterval(() => {
+            if (!this.currentSubtitleLang) return;
+            const pref = this.currentSubtitleLang;
+            const langMatches = (trk, pref) => {
+                if (!trk) return false;
+                const lcPref = pref.toLowerCase();
+                const lcLang = (trk.language || trk.lang || '').toLowerCase();
+                const lcLabel = (trk.label || trk.name || '').toLowerCase();
+                if (lcPref === 'off') return false;
+                if (lcPref === 'en') {
+                    return lcLang.startsWith('en') || lcLang.startsWith('eng') || lcLabel.includes('english');
+                }
+                if (lcPref === 'es') {
+                    return lcLang.startsWith('es') || lcLang.startsWith('spa') || lcLabel.includes('español') || lcLabel.includes('spanish');
+                }
+                return false;
+            };
+            let matched = false;
+            if (pref === 'off') {
+                matched = Array.from(this.videoEl.textTracks || []).every(t => t.mode === 'disabled') && (!this.hls || this.hls.subtitleTrack === -1);
+            } else {
+                matched = Array.from(this.videoEl.textTracks || []).some(t => langMatches(t, pref) && t.mode === 'showing');
+                if (!matched && this.hls && this.hls.subtitleTrack > -1) {
+                    const sel = this.hls.subtitleTracks[this.hls.subtitleTrack];
+                    matched = langMatches({lang: sel?.lang, name: sel?.name}, pref);
+                }
+            }
+            if (!matched) {
+                // Quick retry
+                this.setSubtitleLanguage(pref, 3);
+            }
+        }, 1500);
+    }
+
     applyHlsSubtitlePref() {
         if (!this.hls) return;
         const pref = this.currentSubtitleLang;
@@ -737,9 +793,20 @@ class IVSPlayer {
             this.hls.subtitleTrack = -1;
             return;
         }
+        const langMatches = (trk, pref) => {
+            if (!trk) return false;
+            const lcPref = (pref || '').toLowerCase();
+            const lcLang = (trk.lang || '').toLowerCase();
+            const lcName = (trk.name || '').toLowerCase();
+            if (lcPref === 'en') {
+                return lcLang.startsWith('en') || lcLang.startsWith('eng') || lcName.includes('english') || lcName.includes('inglés') || lcName.includes('ingles');
+            } else if (lcPref === 'es') {
+                return lcLang.startsWith('es') || lcLang.startsWith('spa') || lcName.includes('español') || lcName.includes('spanish') || lcName.includes('espanol');
+            }
+            return false;
+        };
         const tracks = this.hls.subtitleTracks || [];
-        const idx = tracks.findIndex(t => (t.lang && t.lang.toLowerCase().startsWith(pref)) ||
-                                         (t.name && t.name.toLowerCase().includes(pref)));
+        const idx = tracks.findIndex(t => langMatches({language:t.lang,label:t.name}, pref));
         this.hls.subtitleTrack = idx !== -1 ? idx : -1;
     }
 
