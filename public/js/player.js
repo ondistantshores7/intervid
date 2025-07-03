@@ -702,10 +702,16 @@ class IVSPlayer {
                 trackIndex = this.hls.subtitleTracks.findIndex(t => {
                     const l = (t.lang || '').toLowerCase();
                     const n = (t.name || '').toLowerCase();
-                    return l.startsWith(lang) || n.includes(lang) || n.includes('spanish') && lang.startsWith('es') || n.includes('english') && lang.startsWith('en');
+                    return l.startsWith(lang) || n.includes(lang) || (n.includes('spanish') && lang.startsWith('es')) || (n.includes('english') && lang.startsWith('en'));
                 });
+                if (trackIndex === -1 && this.hls.subtitleTracks.length > 0) {
+                    // Fallback to first track if none matched explicitly
+                    trackIndex = 0;
+                }
             }
-            this.hls.subtitleTrack = lang === 'off' || !lang ? -1 : trackIndex;
+            this.hls.subtitleTrack = (lang === 'off' || !lang) ? -1 : trackIndex;
+            // For HLS we rely solely on hls.subtitleTrack; no need to touch videoEl.textTracks
+            return;
         }
         if (!this.videoEl.textTracks) return;
         for (const track of this.videoEl.textTracks) {
