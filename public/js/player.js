@@ -86,6 +86,8 @@ class IVSPlayer {
         this.project = projectData;
         this.videoEl = this.overlay.querySelector('#preview-video');
         this.buttonsContainer = this.overlay.querySelector('.preview-buttons-overlay');
+        // Track user's current caption preference (default to English)
+        this.currentSubtitleLang = 'en';
         // --- Highlighter elements ---
         this.canvas = null;
         this.ctx = null;
@@ -110,8 +112,9 @@ class IVSPlayer {
         window.addEventListener('resize', this.adjustAllButtonFonts);
         this.videoEl.addEventListener('loadedmetadata', () => {
             this.adjustAllButtonFonts();
-            // Try to set default subtitle language to English if available
-            this.setSubtitleLanguage('en');
+            if (this.currentSubtitleLang) {
+                this.setSubtitleLanguage(this.currentSubtitleLang);
+            }
         });
         // Initial adjustment
         setTimeout(this.adjustAllButtonFonts, 0);
@@ -682,10 +685,17 @@ class IVSPlayer {
     }
 
     setSubtitleLanguage(langCode) {
+        // Persist preference
+        this.currentSubtitleLang = langCode;
         if (!this.videoEl || !this.videoEl.textTracks) return;
         for (const track of this.videoEl.textTracks) {
-            track.mode = (track.language && track.language.toLowerCase().startsWith(langCode)) ||
-                        (track.label && track.label.toLowerCase().includes(langCode)) ? 'showing' : 'disabled';
+            if (!langCode || langCode === 'off') {
+                track.mode = 'disabled';
+            } else {
+                const match = (track.language && track.language.toLowerCase().startsWith(langCode)) ||
+                              (track.label && track.label.toLowerCase().includes(langCode));
+                track.mode = match ? 'showing' : 'disabled';
+            }
         }
     }
 
@@ -706,6 +716,8 @@ class IVSPlayer {
                 this.setSubtitleLanguage('es');
             } else if (lowerText.includes('english') || lowerText.includes('inglés') || lowerText.includes('ingles')) {
                 this.setSubtitleLanguage('en');
+            } else if (lowerText.includes('off') || lowerText.includes('no captions') || lowerText.includes('sin subtítulos')) {
+                this.setSubtitleLanguage('off');
             }
 
             let url = buttonData.target.trim();
