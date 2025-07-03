@@ -81,26 +81,24 @@ const hexToRgba = (hex, opacity) => {
 };
 
 class IVSPlayer {
-    constructor(overlayElement, projectData, startNodeId) {
-        this.overlay = overlayElement;
-        this.project = projectData;
-        this.videoEl = this.overlay.querySelector('#preview-video');
-        this.buttonsContainer = this.overlay.querySelector('.preview-buttons-overlay');
-        // --- Highlighter elements ---
-        this.canvas = null;
-        this.ctx = null;
-        this.isDrawing = false;
-        this.isHighlightMode = false;
-        this.hls = null;
-        this.timeUpdateHandler = null;
-        this.loopCount = 0; // Track number of loops for the current node
-        this.activeButtons = new Map(); // Track active buttons and their timeouts
-        this.animatedButtons = new Set(); // Track which buttons have been animated in
+    constructor(videoEl, projectData) {
+        this.videoEl = videoEl;
+        this.projectData = projectData;
+        this.videoContainer = videoEl.parentElement;
+        this.buttonsContainer = document.createElement('div');
+        this.buttonsContainer.className = 'video-buttons-container';
+        this.videoContainer.appendChild(this.buttonsContainer);
+        
+        // Initialize HLS if available (for Cloudflare Stream)
+        this.initHLS();
 
-        if (!this.videoEl || !this.buttonsContainer) {
-            console.error('Player elements not found in the overlay.');
-            return;
-        }
+        // Setup controls container
+        this.controlsContainer = document.createElement('div');
+        this.controlsContainer.className = 'video-controls-container';
+        this.videoContainer.appendChild(this.controlsContainer);
+
+        // Setup captions
+        this.setupCaptions();
 
         this.buttonClickHandler = this.handleButtonClick.bind(this);
         this.buttonsContainer.addEventListener('click', this.buttonClickHandler);
@@ -115,12 +113,132 @@ class IVSPlayer {
         this.videoEndedHandler = this.handleVideoEnd.bind(this);
 
         this.setupHighlighter();
-        this.loadVideo(startNodeId);
+        this.initPlayer();
+    }
+
+    setupCaptions() {
+        this.availableLanguages = this.getAvailableLanguages();
+        this.captionsActive = false;
+        this.currentLanguage = localStorage.getItem('preferredCaptionLanguage') || null;
+
+        // Create captions button
+        this.captionsButton = document.createElement('button');
+        this.captionsButton.className = 'video-control-button captions-button';
+        this.captionsButton.innerText = 'CC';
+        this.captionsButton.title = 'Toggle Captions';
+        this.captionsButton.setAttribute('aria-label', 'Toggle Captions');
+        this.captionsButton.setAttribute('aria-haspopup', 'true');
+        this.controlsContainer.appendChild(this.captionsButton);
+
+        // Create captions menu
+        this.captionsMenu = document.createElement('div');
+        this.captionsMenu.className = 'captions-menu';
+        this.captionsMenu.setAttribute('role', 'menu');
+        this.captionsMenu.style.display = 'none';
+        this.controlsContainer.appendChild(this.captionsMenu);
+
+        // Disable or hide button if no captions available
+        if (this.availableLanguages.length === 0) {
+            this.captionsButton.style.display = 'none';
+        } else {
+            this.updateCaptionsMenu();
+            this.captionsButton.addEventListener('click', () => this.toggleCaptionsMenu());
+        }
+
+        // Load captions if a preferred language is set
+        if (this.currentLanguage && this.availableLanguages.includes(this.currentLanguage)) {
+            this.loadCaptions(this.currentLanguage);
+            this.captionsActive = true;
+            this.captionsButton.classList.add('active');
+        }
+    }
+
+    getAvailableLanguages() {
+        // For now, simulate available languages based on projectData or video metadata
+        // In a real implementation, this would come from Cloudflare API or video metadata
+        const langs = [];
+        if (this.projectData && this.projectData.video && this.projectData.video.subtitles) {
+            if (this.projectData.video.subtitles.en) langs.push('en');
+            if (this.projectData.video.subtitles.es) langs.push('es');
+        }
+        return langs;
+    }
+
+    updateCaptionsMenu() {
+        this.captionsMenu.innerHTML = '';
+        // Add 'Off' option
+        const offItem = document.createElement('div');
+        offItem.className = 'caption-item';
+        offItem.setAttribute('role', 'menuitemradio');
+        offItem.setAttribute('aria-checked', this.captionsActive ? 'false' : 'true');
+        offItem.innerText = 'Off';
+        offItem.addEventListener('click', () => {
+            this.disableCaptions();
+            this.toggleCaptionsMenu();
+        });
+        this.captionsMenu.appendChild(offItem);
+
+        // Add language options
+        this.availableLanguages.forEach(lang => {
+            const item = document.createElement('div');
+            item.className = 'caption-item';
+            item.setAttribute('role', 'menuitemradio');
+            item.setAttribute('aria-checked', this.captionsActive && this.currentLanguage === lang ? 'true' : 'false');
+            item.innerText = lang === 'en' ? 'English' : 'Spanish';
+            item.addEventListener('click', () => {
+                this.loadCaptions(lang);
+                this.toggleCaptionsMenu();
+            });
+            this.captionsMenu.appendChild(item);
+        });
+    }
+
+    toggleCaptionsMenu() {
+        const isExpanded = this.captionsMenu.style.display === 'block';
+        this.captionsButton.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
+        this.captionsMenu.style.display = isExpanded ? 'none' : 'block';
+        this.updateCaptionsMenu();
+    }
+
+    loadCaptions(lang) {
+        // Remove existing tracks
+        const existingTracks = this.videoEl.querySelectorAll('track[kind="subtitles"]');
+        existingTracks.forEach(track => track.remove());
+
+        this.captionsActive = true;
+        this.currentLanguage = lang;
+        this.captionsButton.classList.add('active');
+        localStorage.setItem('preferredCaptionLanguage', lang);
+
+        // Construct VTT URL (placeholder - adapt to actual Cloudflare Stream URL structure)
+        const videoId = this.projectData.video ? this.projectData.video.id : '';
+        const vttUrl = `https://videodelivery.net/${videoId}/subtitles/${lang}.vtt`;
+
+        // Add new track
+        const track = document.createElement('track');
+        track.kind = 'subtitles';
+        track.src = vttUrl;
+        track.srclang = lang;
+        track.label = lang === 'en' ? 'English' : 'Spanish';
+        track.mode = 'showing';
+        this.videoEl.appendChild(track);
+    }
+
+    disableCaptions() {
+        this.captionsActive = false;
+        this.captionsButton.classList.remove('active');
+        const tracks = this.videoEl.querySelectorAll('track[kind="subtitles"]');
+        tracks.forEach(track => {
+            track.mode = 'disabled';
+            track.remove();
+        });
+        localStorage.removeItem('preferredCaptionLanguage');
+        this.currentLanguage = null;
     }
 
     /* ---------------- Highlighter Setup ---------------- */
     setupHighlighter() {
-        const container = this.overlay.querySelector('#video-container');
+        const container = this.videoContainer;
         if (!container || !this.videoEl) return;
 
         // Create canvas overlay only once
@@ -429,7 +547,7 @@ class IVSPlayer {
 
         this.animatedButtons.clear(); // Reset animated buttons for new video
         
-        const node = this.project.videos.find(v => v.id === nodeId);
+        const node = this.projectData.videos.find(v => v.id === nodeId);
         if (!node) {
             console.error('Node not found:', nodeId);
             return;
@@ -756,10 +874,10 @@ class IVSPlayer {
 
     // Find the next node in the flow (for after loop completes)
     findNextNodeId() {
-        if (!this.currentNode || !this.project.connections) return null;
+        if (!this.currentNode || !this.projectData.connections) return null;
         
         // Find connections where this node is the source
-        const connections = this.project.connections.filter(
+        const connections = this.projectData.connections.filter(
             conn => conn.sourceId === this.currentNode.id
         );
         
