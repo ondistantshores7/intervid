@@ -696,16 +696,17 @@ class IVSPlayer {
         return buttonEl;
     }
 
-    setSubtitleLanguage(langCode, retryLeft = 5) {
+    setSubtitleLanguage(langCode, retryLeft = 20) {
         // Persist preference
         this.currentSubtitleLang = langCode;
         localStorage.setItem('ivs_caption_pref', langCode);
         if (!this.videoEl || !this.videoEl.textTracks) return;
-        // If tracks not yet available, retry shortly
-        if (this.videoEl.textTracks.length === 0 && retryLeft > 0) {
-            setTimeout(() => this.setSubtitleLanguage(langCode, retryLeft - 1), 300);
+        // If no tracks yet, retry later (HLS may still be parsing)
+        if (this.videoEl.textTracks.length === 0) {
+            if (retryLeft > 0) setTimeout(() => this.setSubtitleLanguage(langCode, retryLeft - 1), 400);
             return;
         }
+        // Apply to browser tracks
         for (const track of this.videoEl.textTracks) {
             if (!langCode || langCode === 'off') {
                 track.mode = 'disabled';
@@ -714,6 +715,16 @@ class IVSPlayer {
                               (track.label && track.label.toLowerCase().includes(langCode));
                 track.mode = match ? 'showing' : 'disabled';
             }
+        }
+        // Confirm application; if not yet effective, retry
+        const applied = Array.from(this.videoEl.textTracks).some(t => {
+            if (!langCode || langCode === 'off') return t.mode === 'disabled';
+            const matches = (t.language && t.language.toLowerCase().startsWith(langCode)) ||
+                            (t.label && t.label.toLowerCase().includes(langCode));
+            return matches && t.mode === 'showing';
+        });
+        if (!applied && retryLeft > 0) {
+            setTimeout(() => this.setSubtitleLanguage(langCode, retryLeft - 1), 400);
         }
         // Synchronize HLS subtitle track with preference as well
         this.applyHlsSubtitlePref();
