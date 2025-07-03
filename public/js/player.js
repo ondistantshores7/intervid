@@ -612,7 +612,19 @@ class IVSPlayer {
         // Ensure font and opacity are explicitly applied
         if (buttonStyle.fontFamily) buttonEl.style.fontFamily = buttonStyle.fontFamily;
         if (buttonStyle.fontSize) {
-            buttonEl.style.fontSize = buttonStyle.fontSize;
+            // If fontSize specified in px, convert to responsive clamp
+            const match = /^([0-9.]+)px$/.exec(buttonStyle.fontSize);
+            if (match) {
+                const px = parseFloat(match[1]);
+                const minPx = Math.max(10, Math.round(px * 0.6));
+                // Use viewport width scaling: 1vw roughly equals 1% of viewport width
+                // Coefficient 2vw provides nice scaling; tweak based on original size
+                buttonEl.style.fontSize = `clamp(${minPx}px, 2vw, ${px}px)`;
+                buttonEl.dataset.origFontSize = `${px}`;
+            } else {
+                buttonEl.style.fontSize = buttonStyle.fontSize;
+            }
+            // lineHeight will follow font-size automatically
         }
         if (buttonStyle.opacity !== undefined) buttonEl.style.opacity = buttonStyle.opacity;
         Object.assign(buttonEl.style, buttonStyle);
@@ -647,19 +659,7 @@ class IVSPlayer {
         }
         
         this.buttonsContainer.appendChild(buttonEl);
-        this.fitText(buttonEl);
         return buttonEl;
-    }
-
-    fitText(buttonEl) {
-        const maxFont = parseInt(buttonEl.dataset.origFontSize || window.getComputedStyle(buttonEl).fontSize || '24', 10);
-        const minFont = Math.max(12, Math.round(maxFont * 0.6));
-        const padding = 20;
-        let fontSize = maxFont;
-        while (fontSize > minFont && (buttonEl.scrollWidth > buttonEl.offsetWidth - padding || buttonEl.scrollHeight > buttonEl.offsetHeight - padding)) {
-            fontSize--;
-            buttonEl.style.fontSize = `${fontSize}px`;
-        }
     }
 
     handleButtonClick(e) {
