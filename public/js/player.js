@@ -89,8 +89,12 @@ class IVSPlayer {
         this.buttonsContainer.className = 'video-buttons-container';
         this.videoContainer.appendChild(this.buttonsContainer);
         
-        // Initialize HLS if available (for Cloudflare Stream)
-        this.initHLS();
+        // Initialize HLS if available (for Cloudflare Stream) - call after method definition
+        if (typeof this.initHLS === 'function') {
+            this.initHLS();
+        } else {
+            console.warn('initHLS method not found, skipping HLS initialization');
+        }
 
         // Setup controls container
         this.controlsContainer = document.createElement('div');
