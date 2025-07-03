@@ -104,15 +104,6 @@ class IVSPlayer {
 
         this.buttonClickHandler = this.handleButtonClick.bind(this);
         this.buttonsContainer.addEventListener('click', this.buttonClickHandler);
-
-        // ---- Responsive text fitting ----
-        this.fitText = this.fitText.bind(this);
-        this.handleResize = this.handleResize.bind(this);
-        window.addEventListener('resize', this.handleResize);
-        // Re-run when video metadata loads (ensures correct player size)
-        this.videoEl.addEventListener('loadedmetadata', this.handleResize);
-        // Initial fit after current call stack
-        setTimeout(this.handleResize, 0);
         this.videoEndedHandler = this.handleVideoEnd.bind(this);
 
         this.setupHighlighter();
@@ -621,8 +612,19 @@ class IVSPlayer {
         // Ensure font and opacity are explicitly applied
         if (buttonStyle.fontFamily) buttonEl.style.fontFamily = buttonStyle.fontFamily;
         if (buttonStyle.fontSize) {
-            buttonEl.style.fontSize = buttonStyle.fontSize;
-            buttonEl.style.lineHeight = buttonStyle.fontSize; // match height
+            // If fontSize specified in px, convert to responsive clamp
+            const match = /^([0-9.]+)px$/.exec(buttonStyle.fontSize);
+            if (match) {
+                const px = parseFloat(match[1]);
+                const minPx = Math.max(10, Math.round(px * 0.6));
+                // Use viewport width scaling: 1vw roughly equals 1% of viewport width
+                // Coefficient 2vw provides nice scaling; tweak based on original size
+                buttonEl.style.fontSize = `clamp(${minPx}px, 2vw, ${px}px)`;
+                buttonEl.dataset.origFontSize = `${px}`;
+            } else {
+                buttonEl.style.fontSize = buttonStyle.fontSize;
+            }
+            // lineHeight will follow font-size automatically
         }
         if (buttonStyle.opacity !== undefined) buttonEl.style.opacity = buttonStyle.opacity;
         Object.assign(buttonEl.style, buttonStyle);
@@ -657,8 +659,6 @@ class IVSPlayer {
         }
         
         this.buttonsContainer.appendChild(buttonEl);
-        // Ensure text fits within its button container after it's in the DOM
-        this.fitText(buttonEl);
         return buttonEl;
     }
 
@@ -754,25 +754,6 @@ class IVSPlayer {
         }
         
         return null;
-    }
-
-    /* ---------------- Text fit helpers ---------------- */
-    handleResize() {
-        if (!this.buttonsContainer) return;
-        this.buttonsContainer.querySelectorAll('.video-overlay-button').forEach(btn => this.fitText(btn));
-    }
-
-    fitText(btn) {
-        if (!btn || btn.classList.contains('embed-container')) return;
-        const maxFont = parseInt(btn.dataset.origFontSize || window.getComputedStyle(btn).fontSize || '24', 10);
-        let fontSize = maxFont;
-        btn.style.fontSize = fontSize + 'px';
-        btn.style.lineHeight = 'normal';
-        const padding = 4; // small safety padding
-        while (fontSize > 10 && (btn.scrollWidth > btn.offsetWidth - padding || btn.scrollHeight > btn.offsetHeight - padding)) {
-            fontSize -= 1;
-            btn.style.fontSize = fontSize + 'px';
-        }
     }
 
     destroy() {
