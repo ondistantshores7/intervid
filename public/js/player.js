@@ -86,8 +86,14 @@ class IVSPlayer {
         this.project = projectData;
         this.videoEl = this.overlay.querySelector('#preview-video');
         this.buttonsContainer = this.overlay.querySelector('.preview-buttons-overlay');
-        // Track user's current caption preference (default to English)
-        this.currentSubtitleLang = 'en';
+        // Track user's current caption preference (persisted across videos)
+        this.currentSubtitleLang = 'off';
+        try {
+            const storedLang = window.localStorage.getItem('ivsCaptionLang');
+            if (storedLang) this.currentSubtitleLang = storedLang;
+        } catch (e) {
+            // Ignore storage errors (e.g., private browsing)
+        }
         // --- Highlighter elements ---
         this.canvas = null;
         this.ctx = null;
@@ -455,6 +461,8 @@ class IVSPlayer {
             this.hls.attachMedia(this.videoEl);
             // When HLS subtitles updated, re-apply preference
             this.hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => this.applySubtitlePreference());
+            this.hls.on(Hls.Events.MANIFEST_PARSED, () => this.applySubtitlePreference());
+            this.hls.on(Hls.Events.SUBTITLE_TRACK_SWITCH, () => this.applySubtitlePreference());
         } else {
             this.videoEl.src = node.url;
         }
@@ -687,8 +695,11 @@ class IVSPlayer {
     }
 
     setSubtitleLanguage(langCode) {
-        // Persist preference
         this.currentSubtitleLang = langCode || 'off';
+        try {
+            window.localStorage.setItem('ivsCaptionLang', this.currentSubtitleLang);
+        } catch (e) {}
+
         if (!this.videoEl) return;
         if (this.hls && this.hls.subtitleTracks && this.hls.subtitleTracks.length) {
             // HLS.js subtitles
