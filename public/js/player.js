@@ -86,14 +86,8 @@ class IVSPlayer {
         this.project = projectData;
         this.videoEl = this.overlay.querySelector('#preview-video');
         this.buttonsContainer = this.overlay.querySelector('.preview-buttons-overlay');
-        // Track user's current caption preference (default to English)
-        this.currentSubtitleLang = 'en';
-        // Whenever new text tracks are added (e.g., by HLS.js), re-apply preference
-        if (this.videoEl && this.videoEl.textTracks && this.videoEl.textTracks.addEventListener) {
-            this.videoEl.textTracks.addEventListener('addtrack', () => {
-                this.applySubtitlePreference();
-            });
-        }
+        // Load caption preference from storage or default to English
+        this.currentSubtitleLang = localStorage.getItem('ivs_caption_pref') || 'en';
         // --- Highlighter elements ---
         this.canvas = null;
         this.ctx = null;
@@ -122,6 +116,15 @@ class IVSPlayer {
                 this.setSubtitleLanguage(this.currentSubtitleLang);
             }
         });
+        // Re-apply caption preference whenever new text tracks appear (e.g., HLS after manifest parses)
+        if (this.videoEl.textTracks) {
+            const applyPref = () => this.setSubtitleLanguage(this.currentSubtitleLang);
+            if (typeof this.videoEl.textTracks.addEventListener === 'function') {
+                this.videoEl.textTracks.addEventListener('addtrack', applyPref);
+            } else {
+                this.videoEl.textTracks.onaddtrack = applyPref;
+            }
+        }
         // Initial adjustment
         setTimeout(this.adjustAllButtonFonts, 0);
 
@@ -690,15 +693,10 @@ class IVSPlayer {
         return buttonEl;
     }
 
-    applySubtitlePreference() {
-        this.setSubtitleLanguage(this.currentSubtitleLang, /*internal*/ true);
-    }
-
-    setSubtitleLanguage(langCode, internalCall = false) {
-        if (!internalCall) {
-            // Persist preference only when explicitly called by user/action
-            this.currentSubtitleLang = langCode;
-        }
+    setSubtitleLanguage(langCode) {
+        // Persist preference
+        this.currentSubtitleLang = langCode;
+        localStorage.setItem('ivs_caption_pref', langCode);
         if (!this.videoEl || !this.videoEl.textTracks) return;
         for (const track of this.videoEl.textTracks) {
             if (!langCode || langCode === 'off') {
