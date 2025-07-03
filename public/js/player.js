@@ -54,9 +54,17 @@ async function initPlayer(container, projectId) {
             embedContainer.innerHTML = playerHTML;
             
             // Initialize player
-            const startNodeId = projectData.startNodeId || (projectData.videos && projectData.videos.length > 0 ? projectData.videos[0].id : null);
-            console.log('Using start node:', startNodeId);
-            new IVSPlayer(embedContainer, projectData, startNodeId);
+            const videoEl = embedContainer.querySelector('#preview-video');
+            if (videoEl) {
+                try {
+                    console.log('Creating IVSPlayer instance...');
+                    new IVSPlayer(videoEl, projectData);
+                } catch (err) {
+                    console.error('Error creating IVSPlayer:', err);
+                }
+            } else {
+                console.error('Video element not found in embed container');
+            }
         } else {
             console.error('Could not find embed container within:', container);
         }
