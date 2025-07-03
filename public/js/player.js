@@ -87,7 +87,7 @@ class IVSPlayer {
         this.videoEl = this.overlay.querySelector('#preview-video');
         this.buttonsContainer = this.overlay.querySelector('.preview-buttons-overlay');
         // Load caption preference from storage or default to English
-        this.currentSubtitleLang = localStorage.getItem('ivs_caption_pref') || 'en';
+        this.currentSubtitleLang = localStorage.getItem('ivs_caption_pref') || 'off';
         // --- Highlighter elements ---
         this.canvas = null;
         this.ctx = null;
@@ -133,8 +133,8 @@ class IVSPlayer {
         this.setupHighlighter();
         this.loadVideo(startNodeId);
 
-        // Periodically enforce caption preference (some browsers/hls override)
-        this.startCaptionPrefWatch();
+        // Caption watchdog disabled due to conflicts
+        // this.startCaptionPrefWatch();
     }
 
     /* ---------------- Highlighter Setup ---------------- */
