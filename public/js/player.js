@@ -118,9 +118,7 @@ class IVSPlayer {
         window.addEventListener('resize', this.adjustAllButtonFonts);
         this.videoEl.addEventListener('loadedmetadata', () => {
             this.adjustAllButtonFonts();
-            if (this.currentSubtitleLang) {
-                this.applySubtitlePreference();
-            }
+            this.applySubtitlePreference();
         });
         // Initial adjustment
         setTimeout(this.adjustAllButtonFonts, 0);
@@ -701,19 +699,27 @@ class IVSPlayer {
         } catch (e) {}
 
         if (!this.videoEl) return;
+        const lang = this.currentSubtitleLang.toLowerCase();
         if (this.hls && this.hls.subtitleTracks && this.hls.subtitleTracks.length) {
             // HLS.js subtitles
-            const lang = (this.currentSubtitleLang || '').toLowerCase();
-            const trackIndex = this.hls.subtitleTracks.findIndex(t => (t.lang || '').toLowerCase().startsWith(lang) || (t.name || '').toLowerCase().includes(lang));
-            this.hls.subtitleTrack = lang === 'off' || !lang ? -1 : (trackIndex >= 0 ? trackIndex : 0);
-                }
+            const trackIndex = this.hls.subtitleTracks.findIndex(t => {
+                const tLang = (t.lang || '').toLowerCase();
+                const tName = (t.name || '').toLowerCase();
+                return tLang.startsWith(lang) || tName.includes(lang) || 
+                       (lang.startsWith('es') && tName.includes('spanish')) || 
+                       (lang.startsWith('en') && tName.includes('english'));
+            });
+            this.hls.subtitleTrack = lang === 'off' ? -1 : (trackIndex >= 0 ? trackIndex : (this.hls.subtitleTracks.length > 0 ? 0 : -1));
+        }
         if (!this.videoEl.textTracks) return;
         for (const track of this.videoEl.textTracks) {
-            if (!langCode || langCode === 'off') {
+            if (lang === 'off') {
                 track.mode = 'disabled';
             } else {
-                const match = (track.language && track.language.toLowerCase().startsWith(langCode)) ||
-                              (track.label && track.label.toLowerCase().includes(langCode));
+                const match = (track.language && track.language.toLowerCase().startsWith(lang)) ||
+                              (track.label && track.label.toLowerCase().includes(lang)) ||
+                              (lang.startsWith('es') && (track.label || '').toLowerCase().includes('spanish')) ||
+                              (lang.startsWith('en') && (track.label || '').toLowerCase().includes('english'));
                 track.mode = match ? 'showing' : 'disabled';
             }
         }
