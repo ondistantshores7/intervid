@@ -104,19 +104,6 @@ class IVSPlayer {
 
         this.buttonClickHandler = this.handleButtonClick.bind(this);
         this.buttonsContainer.addEventListener('click', this.buttonClickHandler);
-
-        /* ---- Responsive scaling ---- */
-        this.updateOverlayScale = this.updateOverlayScale.bind(this);
-        this.adjustAllButtonFonts = this.adjustAllButtonFonts.bind(this);
-        const resizeHandler = () => {
-            this.updateOverlayScale();
-            this.adjustAllButtonFonts();
-        };
-        window.addEventListener('resize', resizeHandler);
-        // After video metadata loads we know the natural dimensions
-        this.videoEl.addEventListener('loadedmetadata', resizeHandler);
-        // Also trigger once immediately (in case metadata already loaded)
-        resizeHandler();
         this.videoEndedHandler = this.handleVideoEnd.bind(this);
 
         this.setupHighlighter();
@@ -661,8 +648,6 @@ class IVSPlayer {
         }
         
         this.buttonsContainer.appendChild(buttonEl);
-        // After appending we can measure and adjust font size based on actual width
-        this.adjustFontSize(buttonEl);
         return buttonEl;
     }
 
@@ -758,35 +743,6 @@ class IVSPlayer {
         }
         
         return null;
-    }
-
-    /* ---------------- Responsive helpers ---------------- */
-    updateOverlayScale() {
-        if (!this.videoEl || !this.buttonsContainer) return;
-        const naturalW = this.videoEl.videoWidth;
-        const naturalH = this.videoEl.videoHeight;
-        if (!naturalW || !naturalH) return;
-        const displayW = this.videoEl.clientWidth;
-        const displayH = this.videoEl.clientHeight;
-        const scale = Math.min(displayW / naturalW, displayH / naturalH);
-        this.buttonsContainer.style.transformOrigin = 'top left';
-        this.buttonsContainer.style.transform = `scale(${scale})`;
-        this.buttonsContainer.style.width = `${naturalW}px`;
-        this.buttonsContainer.style.height = `${naturalH}px`;
-    }
-
-    adjustFontSize(btn) {
-        if (!btn || btn.classList.contains('embed-container')) return;
-        const bw = btn.offsetWidth;
-        if (!bw) return;
-        const newSize = Math.max(10, Math.min(bw * 0.3, 36));
-        btn.style.fontSize = `${newSize}px`;
-        btn.style.lineHeight = 'normal';
-    }
-
-    adjustAllButtonFonts() {
-        if (!this.buttonsContainer) return;
-        this.buttonsContainer.querySelectorAll('.video-overlay-button').forEach(btn => this.adjustFontSize(btn));
     }
 
     destroy() {
