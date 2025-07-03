@@ -918,24 +918,19 @@ class IVSPlayer {
         }
     }
 
-    /* ---- legacy helpers kept for safety but unused ---- */
     destroy() {
         if (this.hls) {
             this.hls.destroy();
+            this.hls = null;
         }
         if (this.videoEl) {
-            this.videoEl.pause();
-            this.videoEl.src = '';
-            if (this.timeUpdateHandler) {
-                this.videoEl.removeEventListener('timeupdate', this.timeUpdateHandler);
-            }
-            if (this.videoEndedHandler) { // Remove ended listener
-                this.videoEl.removeEventListener('ended', this.videoEndedHandler);
-            }
+            this.videoEl.removeEventListener('ended', this.videoEndedHandler);
+            this.videoEl.removeEventListener('timeupdate', this.timeUpdateHandler);
+            this.videoEl.removeEventListener('loadedmetadata', this.adjustAllButtonFonts);
         }
+        window.removeEventListener('resize', this.adjustAllButtonFonts);
         if (this.buttonsContainer) {
             this.buttonsContainer.removeEventListener('click', this.buttonClickHandler);
-            this.buttonsContainer.innerHTML = '';
         }
         console.log('Player destroyed.');
     }
