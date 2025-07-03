@@ -86,8 +86,8 @@ class IVSPlayer {
         this.project = projectData;
         this.videoEl = this.overlay.querySelector('#preview-video');
         this.buttonsContainer = this.overlay.querySelector('.preview-buttons-overlay');
-        // Track user's caption preference, persisted across sessions (default 'off')
-        this.currentSubtitleLang = window.localStorage.getItem('ivsCaptionLang') || 'off';
+        // Track user's current caption preference (default to English)
+        this.currentSubtitleLang = 'en';
         // --- Highlighter elements ---
         this.canvas = null;
         this.ctx = null;
@@ -453,11 +453,8 @@ class IVSPlayer {
             this.hls = new Hls();
             this.hls.loadSource(node.url);
             this.hls.attachMedia(this.videoEl);
-            // When HLS subtitle related events fire, re-apply preference
-            const reapply = () => this.applySubtitlePreference();
-            this.hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, reapply);
-            this.hls.on(Hls.Events.SUBTITLE_TRACK_SWITCH, reapply);
-            this.hls.on(Hls.Events.MANIFEST_PARSED, reapply);
+            // When HLS subtitles updated, re-apply preference
+            this.hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => this.applySubtitlePreference());
         } else {
             this.videoEl.src = node.url;
         }
@@ -692,37 +689,20 @@ class IVSPlayer {
     setSubtitleLanguage(langCode) {
         // Persist preference
         this.currentSubtitleLang = langCode || 'off';
-        try { window.localStorage.setItem('ivsCaptionLang', this.currentSubtitleLang); } catch(e){}
         if (!this.videoEl) return;
         if (this.hls && this.hls.subtitleTracks && this.hls.subtitleTracks.length) {
             // HLS.js subtitles
             const lang = (this.currentSubtitleLang || '').toLowerCase();
-            let trackIndex = -1;
-            if (lang && lang !== 'off') {
-                trackIndex = this.hls.subtitleTracks.findIndex(t => {
-                    const l = (t.lang || '').toLowerCase();
-                    const n = (t.name || '').toLowerCase();
-                    return l.startsWith(lang) || n.includes(lang) || (n.includes('spanish') && lang.startsWith('es')) || (n.includes('english') && lang.startsWith('en'));
-                });
-                if (trackIndex === -1 && this.hls.subtitleTracks.length > 0) {
-                    // Fallback to first track if none matched explicitly
-                    trackIndex = 0;
+            const trackIndex = this.hls.subtitleTracks.findIndex(t => (t.lang || '').toLowerCase().startsWith(lang) || (t.name || '').toLowerCase().includes(lang));
+            this.hls.subtitleTrack = lang === 'off' || !lang ? -1 : (trackIndex >= 0 ? trackIndex : 0);
                 }
-            }
-            this.hls.subtitleTrack = (lang === 'off' || !lang) ? -1 : trackIndex;
-            // For HLS we rely solely on hls.subtitleTrack; no need to touch videoEl.textTracks
-            return;
-        }
         if (!this.videoEl.textTracks) return;
         for (const track of this.videoEl.textTracks) {
             if (!langCode || langCode === 'off') {
                 track.mode = 'disabled';
             } else {
-                const lowered = (langCode || '').toLowerCase();
-                const match = (track.language && track.language.toLowerCase().startsWith(lowered)) ||
-                              (track.label && track.label.toLowerCase().includes(lowered)) ||
-                              (track.label && track.label.toLowerCase().includes('spanish') && lowered.startsWith('es')) ||
-                              (track.label && track.label.toLowerCase().includes('english') && lowered.startsWith('en'));
+                const match = (track.language && track.language.toLowerCase().startsWith(langCode)) ||
+                              (track.label && track.label.toLowerCase().includes(langCode));
                 track.mode = match ? 'showing' : 'disabled';
             }
         }
