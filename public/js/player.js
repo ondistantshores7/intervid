@@ -697,6 +697,7 @@ class IVSPlayer {
         try {
             window.localStorage.setItem('ivsCaptionLang', this.currentSubtitleLang);
         } catch (e) {}
+        console.log('Subtitle language set to: ' + this.currentSubtitleLang);
 
         if (!this.videoEl) return;
         const lang = this.currentSubtitleLang.toLowerCase();
@@ -710,6 +711,7 @@ class IVSPlayer {
                        (lang.startsWith('en') && tName.includes('english'));
             });
             this.hls.subtitleTrack = lang === 'off' ? -1 : (trackIndex >= 0 ? trackIndex : (this.hls.subtitleTracks.length > 0 ? 0 : -1));
+            console.log('HLS subtitle track set to: ' + this.hls.subtitleTrack + ', available tracks: ' + this.hls.subtitleTracks.length);
         }
         if (!this.videoEl.textTracks) return;
         for (const track of this.videoEl.textTracks) {
@@ -721,6 +723,7 @@ class IVSPlayer {
                               (lang.startsWith('es') && (track.label || '').toLowerCase().includes('spanish')) ||
                               (lang.startsWith('en') && (track.label || '').toLowerCase().includes('english'));
                 track.mode = match ? 'showing' : 'disabled';
+                console.log('Track ' + (track.label || track.language) + ' mode set to: ' + track.mode);
             }
         }
     }
@@ -749,6 +752,8 @@ class IVSPlayer {
                 this.setSubtitleLanguage('en');
             } else if (lowerText.includes('off') || lowerText.includes('no captions') || lowerText.includes('sin subtítulos')) {
                 this.setSubtitleLanguage('off');
+            } else {
+                console.log('Unhandled button text for subtitle: ' + buttonData.text);
             }
 
             let url = buttonData.target.trim();
