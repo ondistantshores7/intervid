@@ -546,59 +546,54 @@ class IVSPlayer {
     /* --------------------------------------------------- */
 
     loadVideo(nodeId) {
-        // Clear any existing timeouts
-        this.clearAllButtonTimeouts();
-        this.activeButtons.clear();
-        // Hide staff overlay (if visible) and clear highlights when changing videos
-        if (this.staffOverlay) {
-            this.staffOverlay.style.display = 'none';
-        }
-        if (this.ctx && this.canvas) {
-            this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
-        }
-        this.isHighlightMode = false;
-        if (this.canvas) this.canvas.style.pointerEvents = 'none';
-        if (this.colorPicker) this.colorPicker.style.display = 'none';
-        if (this.clearHighlightsBtn) this.clearHighlightsBtn.style.display = 'none';
-        if (this.highlighterBtn) this.highlighterBtn.classList.remove('active');
-
-        this.animatedButtons.clear(); // Reset animated buttons for new video
-        
+        console.log('Loading video for node:', nodeId);
         const node = this.projectData.videos.find(v => v.id === nodeId);
         if (!node) {
-            console.error('Node not found:', nodeId);
+            console.error('Video node not found:', nodeId);
             return;
         }
         this.currentNode = node;
-        this.loopCount = 0; // Reset loop counter when loading a new node
+        this.loopCount = 0; // Reset loop count for new video
+
+        // Clear existing buttons
         this.buttonsContainer.innerHTML = '';
+        this.activeButtons.clear();
+        this.animatedButtons.clear();
 
-        if (this.hls) {
-            this.hls.destroy();
-        }
-
-        if (Hls.isSupported() && node.url.includes('.m3u8')) {
-            this.hls = new Hls();
-            this.hls.loadSource(node.url);
-            this.hls.attachMedia(this.videoEl);
+        // Set video source
+        const videoUrl = node.hls_url || node.url;
+        if (videoUrl) {
+            if (this.hls) {
+                console.log('Loading HLS stream:', videoUrl);
+                this.hls.loadSource(videoUrl);
+                this.hls.startLoad();
+            } else {
+                console.log('Loading direct video URL:', videoUrl);
+                this.videoEl.src = videoUrl;
+                this.videoEl.load();
+            }
         } else {
-            this.videoEl.src = node.url;
+            console.error('No video URL found for node:', nodeId);
         }
 
-        if (this.timeUpdateHandler) {
-            this.videoEl.removeEventListener('timeupdate', this.timeUpdateHandler);
+        // Add event listener for video end if not already added
+        if (!this.videoEl.hasAttribute('data-end-listener')) {
+            this.videoEl.addEventListener('ended', this.videoEndedHandler);
+            this.videoEl.setAttribute('data-end-listener', 'true');
         }
 
-        this.timeUpdateHandler = this.updateButtons.bind(this);
-        this.videoEl.addEventListener('timeupdate', this.timeUpdateHandler);
-
-        // Handle video ending
-        if (this.videoEndedHandler) {
-            this.videoEl.removeEventListener('ended', this.videoEndedHandler);
+        // Create buttons for this video
+        if (node.buttons && node.buttons.length > 0) {
+            node.buttons.forEach(btnData => {
+                this.createButton(btnData);
+            });
         }
-        this.videoEl.addEventListener('ended', this.videoEndedHandler);
 
-        this.videoEl.play().catch(e => console.error('Preview playback failed:', e));
+        // Setup time update handler for button animations if not already added
+        if (!this.timeUpdateHandler) {
+            this.timeUpdateHandler = this.handleTimeUpdate.bind(this);
+            this.videoEl.addEventListener('timeupdate', this.timeUpdateHandler);
+        }
     }
     
     clearAllButtonTimeouts() {
