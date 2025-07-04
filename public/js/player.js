@@ -839,12 +839,12 @@ class IVSPlayer {
             if (!url) return;
             // Detect Cloudflare Stream URL
             let thumbUrl = null;
-            const streamMatch = url.match(/https:\/\/([a-z0-9\-]+\.)?cloudflarestream\.com\/(?:[a-zA-Z0-9_-]+)\/manifest\.mp4/i);
-            if (streamMatch) {
-                // Cloudflare Stream: use thumbnail API only
-                thumbUrl = url.replace(/\/manifest\.mp4.*/, '/thumbnails/thumbnail.jpg?time=2s');
+            const cfStream = /(?:cloudflarestream\.com|videodelivery\.net)/i.test(url);
+            if (cfStream) {
+                // Replace the manifest segment (e.g., /manifest/video.m3u8 or /manifest.m3u8) with the thumbnails API
+                thumbUrl = url.replace(/\/manifest(?:\/[^\/]+)?\.m3u8.*/, '/thumbnails/thumbnail.jpg?time=2s')
+                               .replace(/\/manifest\.mp4.*/, '/thumbnails/thumbnail.jpg?time=2s');
             } else {
-                // Not Stream: use t=2 trick
                 thumbUrl = url.includes('#') ? url : `${url}#t=2`;
             }
             this.videoEl.poster = thumbUrl;
