@@ -86,7 +86,30 @@ class IVSPlayer {
         this.project = projectData;
         this.videoEl = this.overlay.querySelector('#preview-video');
         this.buttonsContainer = this.overlay.querySelector('.preview-buttons-overlay');
-        // -------- Caption Switch UI --------
+        // -------- Caption Switch + Menu UI --------
+        // menu (three-dots) button
+        this.menuBtn = document.createElement('button');
+        this.menuBtn.textContent = '⋮';
+        this.menuBtn.setAttribute('aria-label', 'Settings');
+        Object.assign(this.menuBtn.style, {
+            position: 'absolute',
+            bottom: '12px',
+            right: '12px',
+            zIndex: 31,
+            background: 'rgba(0,0,0,0.6)',
+            color: '#fff',
+            border: 'none',
+            width: '28px',
+            height: '28px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '18px',
+            lineHeight: '24px',
+            padding: '0'
+        });
+        this.overlay.appendChild(this.menuBtn);
+
+        // caption switch panel
         this.captionSwitch = document.createElement('div');
         this.captionSwitch.className = 'caption-switch';
         this.captionSwitch.innerHTML = `
@@ -95,16 +118,19 @@ class IVSPlayer {
             <button data-lang="es">Español CC</button>`;
         Object.assign(this.captionSwitch.style, {
             position: 'absolute',
-            bottom: '12px',
+            bottom: '50px',
             right: '12px',
             zIndex: 30,
-            background: 'rgba(0,0,0,0.6)',
+            background: 'rgba(0,0,0,0.8)',
             padding: '6px 8px',
-            borderRadius: '4px'
+            borderRadius: '4px',
+            display: 'none'
         });
         Array.from(this.captionSwitch.querySelectorAll('button')).forEach(btn => {
             Object.assign(btn.style, {
-                margin: '0 4px',
+                display: 'block',
+                width: '100%',
+                margin: '4px 0',
                 background: '#fff',
                 border: 'none',
                 padding: '4px 6px',
@@ -113,11 +139,25 @@ class IVSPlayer {
             });
         });
         this.overlay.appendChild(this.captionSwitch);
+
+        // toggle panel
+        this.menuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.captionSwitch.style.display = this.captionSwitch.style.display === 'none' ? 'block' : 'none';
+        });
+        // hide when clicking outside
+        this.overlay.addEventListener('click', (e) => {
+            if (!this.captionSwitch.contains(e.target) && e.target !== this.menuBtn) {
+                this.captionSwitch.style.display = 'none';
+            }
+        });
+        // handle caption clicks
         this.captionSwitch.addEventListener('click', (e) => {
             const targetBtn = e.target.closest('button[data-lang]');
             if (targetBtn) {
                 const lang = targetBtn.dataset.lang;
                 this.setSubtitleLanguage(lang);
+                this.captionSwitch.style.display = 'none';
             }
         });
         // Load caption preference from storage or default to English
