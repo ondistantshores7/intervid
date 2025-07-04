@@ -86,9 +86,11 @@ class IVSPlayer {
     constructor(overlayElement, projectData, startNodeId) {
         this.overlay = overlayElement;
         this.project = projectData;
-        // Kick off poster generation (non-blocking)
-        this._setPosterFromFirstVideo().catch(err => console.warn('Poster generation failed', err));
         this.videoEl = this.overlay.querySelector('#preview-video');
+        if (this.videoEl) {
+            // Kick off poster generation (non-blocking)
+            this._setPosterFromFirstVideo().catch(err => console.warn('Poster generation failed', err));
+        }
         this.buttonsContainer = this.overlay.querySelector('.preview-buttons-overlay');
         // Ensure any previously injected style hiding the native overflow menu is removed
         const prevHide = document.getElementById('ivs-hide-native-overflow-style');
