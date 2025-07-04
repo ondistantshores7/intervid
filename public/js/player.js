@@ -200,6 +200,22 @@ class IVSPlayer {
                 background: '#000'
             });
             this.overlay.appendChild(this.thumbnailImg);
+            // Add play button overlay
+            this.playBtn = document.createElement('div');
+            this.playBtn.innerHTML = '<svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true"><circle cx="32" cy="32" r="32" fill="rgba(0,0,0,0.5)"/><polygon points="26,20 26,44 46,32" fill="#fff"/></svg>';
+            Object.assign(this.playBtn.style, {
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                zIndex: '2',
+                cursor: 'pointer',
+                pointerEvents: 'auto'
+            });
+            this.overlay.appendChild(this.playBtn);
+            this.playBtn.addEventListener('click', () => {
+                this.videoEl.play().catch(() => {});
+            });
             // Generate poster / thumbnail
             this._setPosterFromFirstVideo().catch(err => console.warn('Poster generation failed', err));
             // Hide thumbnail once video actually plays
@@ -563,6 +579,10 @@ class IVSPlayer {
         }
         this.currentNode = node;
         this.loopCount = 0; // Reset loop counter when loading a new node
+        // Show or hide play button based on autoplay
+        if (this.playBtn) {
+            this.playBtn.style.display = autoplay ? 'none' : 'block';
+        }
         this.buttonsContainer.innerHTML = '';
 
         if (this.hls) {
