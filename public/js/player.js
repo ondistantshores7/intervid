@@ -81,9 +81,13 @@ const hexToRgba = (hex, opacity) => {
 };
 
 class IVSPlayer {
+    // Cache posters so multiple players using the same URL don't duplicate work
+    static _posterCache = new Map();
     constructor(overlayElement, projectData, startNodeId) {
         this.overlay = overlayElement;
         this.project = projectData;
+        // Kick off poster generation (non-blocking)
+        this._setPosterFromFirstVideo().catch(err => console.warn('Poster generation failed', err));
         this.videoEl = this.overlay.querySelector('#preview-video');
         this.buttonsContainer = this.overlay.querySelector('.preview-buttons-overlay');
         // Ensure any previously injected style hiding the native overflow menu is removed
@@ -145,6 +149,7 @@ class IVSPlayer {
             });
         });
         this.overlay.appendChild(this.captionSwitch);
+        // poster will be hidden automatically once playback starts
 
         // toggle panel
         this.menuBtn.addEventListener('click', (e) => {
@@ -795,6 +800,52 @@ class IVSPlayer {
             console.log('[IVS DEBUG]', label, {pref:this.currentSubtitleLang, browserTracks:tracks, hls:hlsInfo});
         } catch(e){}
     }
+
+    /* ---------------- Poster generation ---------------- */
+    async _setPosterFromFirstVideo() {
+        try {
+            if (!this.project?.videos?.length) return;
+            const url = this.project.videos[0].url;
+            if (!url) return;
+            let dataUrl = IVSPlayer._posterCache.get(url);
+            if (!dataUrl) {
+                dataUrl = await this._captureFrame(url, 2);
+                if (dataUrl) IVSPlayer._posterCache.set(url, dataUrl);
+            }
+            if (dataUrl) this.videoEl.poster = dataUrl;
+        } catch(e) { console.warn('poster err', e);}    }
+
+    _captureFrame(videoUrl, seekTime = 2) {
+        return new Promise((resolve, reject) => {
+            const vid = document.createElement('video');
+            vid.crossOrigin = 'anonymous';
+            vid.muted = true;
+            vid.playsInline = true;
+            vid.src = videoUrl;
+            const cleanup = () => { vid.pause(); vid.remove(); };
+            vid.addEventListener('error', () => { cleanup(); reject(new Error('video load error')); });
+            vid.addEventListener('loadeddata', () => {
+                if (vid.readyState < 2) return; // metadata not ready
+                if (seekTime > vid.duration) seekTime = Math.min(0.5, vid.duration || 0);
+                const seek = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = vid.videoWidth;
+                    canvas.height = vid.videoHeight;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+                    try {
+                        const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+                        cleanup();
+                        resolve(dataURL);
+                    } catch(e) { cleanup(); reject(e); }
+                };
+                vid.currentTime = seekTime;
+                vid.addEventListener('seeked', seek, { once: true });
+            }, { once: true });
+        });
+    }
+
+    /* ---------------- Captions ---------------- */
 
     handleNativeCaptionChange() {
         if (!this.videoEl || !this.videoEl.textTracks) return;
