@@ -86,13 +86,10 @@ class IVSPlayer {
         this.project = projectData;
         this.videoEl = this.overlay.querySelector('#preview-video');
         this.buttonsContainer = this.overlay.querySelector('.preview-buttons-overlay');
-        // Inject global CSS once to hide native video overflow menu button
-        if (!document.getElementById('ivs-hide-native-overflow-style')) {
-            const s = document.createElement('style');
-            s.id = 'ivs-hide-native-overflow-style';
-            s.textContent = `video::-webkit-media-controls-overflow-menu-button{display:none !important;}`;
-            document.head.appendChild(s);
-        }
+        // Ensure any previously injected style hiding the native overflow menu is removed
+        const prevHide = document.getElementById('ivs-hide-native-overflow-style');
+        if (prevHide) prevHide.remove();
+
         // -------- Caption Switch + Menu UI --------
         // menu (three-dots) button
         this.menuBtn = document.createElement('button');
@@ -115,6 +112,8 @@ class IVSPlayer {
             padding: '0'
         });
         this.overlay.appendChild(this.menuBtn);
+        // Hide custom menu button (use native overflow menu instead)
+        this.menuBtn.style.display = 'none';
 
         // caption switch panel
         this.captionSwitch = document.createElement('div');
@@ -161,12 +160,12 @@ class IVSPlayer {
         // handle caption clicks
         this.captionSwitch.addEventListener('click', (e) => {
             const targetBtn = e.target.closest('button[data-lang]');
-            if (targetBtn) {
-                const lang = targetBtn.dataset.lang;
-                this.setSubtitleLanguage(lang);
-                this.captionSwitch.style.display = 'none';
-            }
+            // Using native overflow menu for captions; removed custom menu implementation.
         });
+        // Listen to native textTracks changes (built-in captions menu)
+        if (this.videoEl.textTracks && this.videoEl.textTracks.addEventListener) {
+            this.videoEl.textTracks.addEventListener('change', () => this.handleNativeCaptionChange());
+        }
         // Load caption preference from storage or default to English
         this.currentSubtitleLang = localStorage.getItem('ivs_caption_pref') || 'off';
         // --- Highlighter elements ---
@@ -795,6 +794,26 @@ class IVSPlayer {
             } : 'no-hls';
             console.log('[IVS DEBUG]', label, {pref:this.currentSubtitleLang, browserTracks:tracks, hls:hlsInfo});
         } catch(e){}
+    }
+
+    handleNativeCaptionChange() {
+        if (!this.videoEl || !this.videoEl.textTracks) return;
+        const showing = Array.from(this.videoEl.textTracks).find(t => t.mode === 'showing');
+        const detected = showing ? this._langFromLabels(showing.language, showing.label) : 'off';
+        if (detected !== this.currentSubtitleLang) {
+            this.currentSubtitleLang = detected;
+            localStorage.setItem('ivs_caption_pref', detected);
+            this.applyHlsSubtitlePref();
+            this.debugSubtitleState('native menu picked');
+        }
+    }
+
+    _langFromLabels(langStr = '', labelStr = '') {
+        const lcLang = langStr.toLowerCase();
+        const lcLabel = labelStr.toLowerCase();
+        if (lcLang.startsWith('es') || lcLabel.includes('español') || lcLabel.includes('spanish') || lcLabel.includes('espanol')) return 'es';
+        if (lcLang.startsWith('en') || lcLabel.includes('english') || lcLabel.includes('inglés') || lcLabel.includes('ingles')) return 'en';
+        return 'off';
     }
 
     setSubtitleLanguage(langCode, retryLeft = 20) {
