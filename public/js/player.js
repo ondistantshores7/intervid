@@ -807,10 +807,17 @@ class IVSPlayer {
             if (!this.project?.videos?.length) return;
             const url = this.project.videos[0].url;
             if (!url) return;
+            // First, try fast path: URL fragment preview (Chrome/Edge support)
+            const tPoster = url.includes('#') ? url : `${url}#t=2`;
+            this.videoEl.poster = tPoster;
+
+            // If browser doesn’t support that or frame isn’t clear, still attempt capture once (non-blocking)
             let dataUrl = IVSPlayer._posterCache.get(url);
             if (!dataUrl) {
-                dataUrl = await this._captureFrame(url, 2);
-                if (dataUrl) IVSPlayer._posterCache.set(url, dataUrl);
+                try {
+                    dataUrl = await this._captureFrame(url, 2);
+                    if (dataUrl) IVSPlayer._posterCache.set(url, dataUrl);
+                } catch(e) { /* capture may fail due to CORS */ }
             }
             if (dataUrl) this.videoEl.poster = dataUrl;
         } catch(e) { console.warn('poster err', e);}    }
