@@ -228,9 +228,6 @@ class IVSPlayer {
             this.videoEl.addEventListener('play', () => {
                 this.playBtn.style.display = 'none';
             });
-            this.videoEl.addEventListener('pause', () => {
-                this.playBtn.style.display = 'block';
-            });
             // Generate poster / thumbnail
             this._setPosterFromFirstVideo().catch(err => console.warn('Poster generation failed', err));
             // Hide thumbnail once video actually plays
@@ -596,6 +593,7 @@ class IVSPlayer {
         this.loopCount = 0; // Reset loop counter when loading a new node
         // Show or hide play button based on autoplay
         if (this.playBtn) {
+            // Show only in first load when autoplay is false
             this.playBtn.style.display = autoplay ? 'none' : 'block';
         }
         this.buttonsContainer.innerHTML = '';
