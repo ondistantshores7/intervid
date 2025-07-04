@@ -831,25 +831,36 @@ class IVSPlayer {
         } catch(e){}
     }
 
+
     /* ---------------- Poster generation ---------------- */
     async _setPosterFromFirstVideo() {
         try {
             if (!this.project?.videos?.length) return;
             const url = this.project.videos[0].url;
-            if (!url) return;
-            // Detect Cloudflare Stream URL
-            let thumbUrl = null;
-            const cfStream = /(?:cloudflarestream\.com|videodelivery\.net)/i.test(url);
-            if (cfStream) {
-                // Replace the manifest segment (e.g., /manifest/video.m3u8 or /manifest.m3u8) with the thumbnails API
-                thumbUrl = url.replace(/\/manifest(?:\/[^\/]+)?\.m3u8.*/, '/thumbnails/thumbnail.jpg?time=2s')
-                               .replace(/\/manifest\.mp4.*/, '/thumbnails/thumbnail.jpg?time=2s');
+            if (!url || !this.videoEl) return;
+
+            let thumbUrl;
+            const isStream = /(?:cloudflarestream\.com|videodelivery\.net)/i.test(url);
+            if (isStream) {
+                // Convert manifest URL (.m3u8 or manifest variant) to thumbnail endpoint
+                thumbUrl = url
+                    .replace(/\/manifest(?:\/[^\/]+)?\.m3u8.*/, '/thumbnails/thumbnail.jpg')
+                    .replace(/\/manifest\.m3u8.*/, '/thumbnails/thumbnail.jpg')
+                    .replace(/\/manifest\.mp4.*/, '/thumbnails/thumbnail.jpg');
+
+                // High-resolution: scale to device pixel ratio, cap at 1920px
+                const widthPx = Math.min((this.videoEl.clientWidth || 1280) * (window.devicePixelRatio || 1), 1920);
+                thumbUrl += `?time=2s&width=${Math.round(widthPx)}`;
             } else {
+                // Fallback: media fragment trick
                 thumbUrl = url.includes('#') ? url : `${url}#t=2`;
             }
+
             this.videoEl.poster = thumbUrl;
             if (this.thumbnailImg) this.thumbnailImg.src = thumbUrl;
-        } catch(e) { console.warn('poster err', e); }
+        } catch (e) {
+            console.warn('poster err', e);
+        }
     }
 
     /* ---------------- Captions ---------------- */
