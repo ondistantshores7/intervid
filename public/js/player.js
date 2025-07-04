@@ -186,6 +186,27 @@ class IVSPlayer {
         this.activeButtons = new Map(); // Track active buttons and their timeouts
         this.animatedButtons = new Set(); // Track which buttons have been animated in
 
+        if (this.videoEl) {
+            // Add thumbnail overlay <img>
+            this.thumbnailImg = document.createElement('img');
+            Object.assign(this.thumbnailImg.style, {
+                position: 'absolute',
+                inset: '0',
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                zIndex: '1',
+                pointerEvents: 'none',
+                background: '#000'
+            });
+            this.overlay.appendChild(this.thumbnailImg);
+            // Generate poster / thumbnail
+            this._setPosterFromFirstVideo().catch(err => console.warn('Poster generation failed', err));
+            // Hide thumbnail once video actually plays
+            this.videoEl.addEventListener('play', () => {
+                if (this.thumbnailImg) this.thumbnailImg.style.display = 'none';
+            });
+        }
         if (!this.videoEl || !this.buttonsContainer) {
             console.error('Player elements not found in the overlay.');
             return;
@@ -218,7 +239,7 @@ class IVSPlayer {
         this.videoEndedHandler = this.handleVideoEnd.bind(this);
 
         this.setupHighlighter();
-        this.loadVideo(startNodeId);
+        this.loadVideo(startNodeId, false);
 
         // Caption watchdog disabled due to conflicts
         // this.startCaptionPrefWatch();
@@ -516,7 +537,7 @@ class IVSPlayer {
 
     /* --------------------------------------------------- */
 
-    loadVideo(nodeId) {
+    loadVideo(nodeId, autoplay = true) {
         // Clear any existing timeouts
         this.clearAllButtonTimeouts();
         this.activeButtons.clear();
@@ -571,13 +592,20 @@ class IVSPlayer {
         this.timeUpdateHandler = this.updateButtons.bind(this);
         this.videoEl.addEventListener('timeupdate', this.timeUpdateHandler);
 
+        // Start playback only if requested and browser allows
+        if (autoplay) {
+            this.videoEl.play().catch(err => {
+                console.warn('Autoplay prevented', err);
+            });
+        }
+
         // Handle video ending
         if (this.videoEndedHandler) {
             this.videoEl.removeEventListener('ended', this.videoEndedHandler);
         }
         this.videoEl.addEventListener('ended', this.videoEndedHandler);
 
-        this.videoEl.play().catch(e => console.error('Preview playback failed:', e));
+        
     }
     
     clearAllButtonTimeouts() {
@@ -809,49 +837,19 @@ class IVSPlayer {
             if (!this.project?.videos?.length) return;
             const url = this.project.videos[0].url;
             if (!url) return;
-            // First, try fast path: URL fragment preview (Chrome/Edge support)
-            const tPoster = url.includes('#') ? url : `${url}#t=2`;
-            this.videoEl.poster = tPoster;
-
-            // If browser doesn’t support that or frame isn’t clear, still attempt capture once (non-blocking)
-            let dataUrl = IVSPlayer._posterCache.get(url);
-            if (!dataUrl) {
-                try {
-                    dataUrl = await this._captureFrame(url, 2);
-                    if (dataUrl) IVSPlayer._posterCache.set(url, dataUrl);
-                } catch(e) { /* capture may fail due to CORS */ }
+            // Detect Cloudflare Stream URL
+            let thumbUrl = null;
+            const streamMatch = url.match(/https:\/\/([a-z0-9\-]+\.)?cloudflarestream\.com\/(?:[a-zA-Z0-9_-]+)\/manifest\.mp4/i);
+            if (streamMatch) {
+                // Cloudflare Stream: use thumbnail API only
+                thumbUrl = url.replace(/\/manifest\.mp4.*/, '/thumbnails/thumbnail.jpg?time=2s');
+            } else {
+                // Not Stream: use t=2 trick
+                thumbUrl = url.includes('#') ? url : `${url}#t=2`;
             }
-            if (dataUrl) this.videoEl.poster = dataUrl;
-        } catch(e) { console.warn('poster err', e);}    }
-
-    _captureFrame(videoUrl, seekTime = 2) {
-        return new Promise((resolve, reject) => {
-            const vid = document.createElement('video');
-            vid.crossOrigin = 'anonymous';
-            vid.muted = true;
-            vid.playsInline = true;
-            vid.src = videoUrl;
-            const cleanup = () => { vid.pause(); vid.remove(); };
-            vid.addEventListener('error', () => { cleanup(); reject(new Error('video load error')); });
-            vid.addEventListener('loadeddata', () => {
-                if (vid.readyState < 2) return; // metadata not ready
-                if (seekTime > vid.duration) seekTime = Math.min(0.5, vid.duration || 0);
-                const seek = () => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = vid.videoWidth;
-                    canvas.height = vid.videoHeight;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
-                    try {
-                        const dataURL = canvas.toDataURL('image/jpeg', 0.8);
-                        cleanup();
-                        resolve(dataURL);
-                    } catch(e) { cleanup(); reject(e); }
-                };
-                vid.currentTime = seekTime;
-                vid.addEventListener('seeked', seek, { once: true });
-            }, { once: true });
-        });
+            this.videoEl.poster = thumbUrl;
+            if (this.thumbnailImg) this.thumbnailImg.src = thumbUrl;
+        } catch(e) { console.warn('poster err', e); }
     }
 
     /* ---------------- Captions ---------------- */
