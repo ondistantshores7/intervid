@@ -86,6 +86,13 @@ class IVSPlayer {
         this.project = projectData;
         this.videoEl = this.overlay.querySelector('#preview-video');
         this.buttonsContainer = this.overlay.querySelector('.preview-buttons-overlay');
+        // Inject global CSS once to hide native video overflow menu button
+        if (!document.getElementById('ivs-hide-native-overflow-style')) {
+            const s = document.createElement('style');
+            s.id = 'ivs-hide-native-overflow-style';
+            s.textContent = `video::-webkit-media-controls-overflow-menu-button{display:none !important;}`;
+            document.head.appendChild(s);
+        }
         // -------- Caption Switch + Menu UI --------
         // menu (three-dots) button
         this.menuBtn = document.createElement('button');
