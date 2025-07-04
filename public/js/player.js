@@ -86,6 +86,40 @@ class IVSPlayer {
         this.project = projectData;
         this.videoEl = this.overlay.querySelector('#preview-video');
         this.buttonsContainer = this.overlay.querySelector('.preview-buttons-overlay');
+        // -------- Caption Switch UI --------
+        this.captionSwitch = document.createElement('div');
+        this.captionSwitch.className = 'caption-switch';
+        this.captionSwitch.innerHTML = `
+            <button data-lang="off">CC Off</button>
+            <button data-lang="en">English CC</button>
+            <button data-lang="es">Español CC</button>`;
+        Object.assign(this.captionSwitch.style, {
+            position: 'absolute',
+            bottom: '12px',
+            right: '12px',
+            zIndex: 30,
+            background: 'rgba(0,0,0,0.6)',
+            padding: '6px 8px',
+            borderRadius: '4px'
+        });
+        Array.from(this.captionSwitch.querySelectorAll('button')).forEach(btn => {
+            Object.assign(btn.style, {
+                margin: '0 4px',
+                background: '#fff',
+                border: 'none',
+                padding: '4px 6px',
+                cursor: 'pointer',
+                fontSize: '12px'
+            });
+        });
+        this.overlay.appendChild(this.captionSwitch);
+        this.captionSwitch.addEventListener('click', (e) => {
+            const targetBtn = e.target.closest('button[data-lang]');
+            if (targetBtn) {
+                const lang = targetBtn.dataset.lang;
+                this.setSubtitleLanguage(lang);
+            }
+        });
         // Load caption preference from storage or default to English
         this.currentSubtitleLang = localStorage.getItem('ivs_caption_pref') || 'off';
         // --- Highlighter elements ---
