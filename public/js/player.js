@@ -210,11 +210,26 @@ class IVSPlayer {
                 transform: 'translate(-50%, -50%)',
                 zIndex: '2',
                 cursor: 'pointer',
-                pointerEvents: 'auto'
+                pointerEvents: 'auto',
+                transition: 'transform 0.2s ease'
             });
             this.overlay.appendChild(this.playBtn);
             this.playBtn.addEventListener('click', () => {
                 this.videoEl.play().catch(() => {});
+            });
+            // Hover animation
+            this.playBtn.addEventListener('mouseenter', () => {
+                this.playBtn.style.transform = 'translate(-50%, -50%) scale(1.15)';
+            });
+            this.playBtn.addEventListener('mouseleave', () => {
+                this.playBtn.style.transform = 'translate(-50%, -50%) scale(1)';
+            });
+            // Hide play button on playback
+            this.videoEl.addEventListener('play', () => {
+                this.playBtn.style.display = 'none';
+            });
+            this.videoEl.addEventListener('pause', () => {
+                this.playBtn.style.display = 'block';
             });
             // Generate poster / thumbnail
             this._setPosterFromFirstVideo().catch(err => console.warn('Poster generation failed', err));
