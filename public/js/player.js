@@ -1,11 +1,13 @@
 (function() {
     // --- Embed Security: Domain Locking ---
-    const allowedDomains = [
-        'threeminutetheory.com',
-        'learn.threeminutetheory.com',
-        'localhost',
-        '127.0.0.1',
-        window.location.hostname // Allow the domain the player is hosted on (for direct previews)
+            const allowedDomains = [
+        'threeminutetheory.com',       // Your primary custom domain
+        'learn.threeminutetheory.com', // Your learning subdomain
+        'kajabi.com',                  // Base Kajabi domain
+        'mykajabi.com',                // Common Kajabi site domain for courses
+        'localhost',                   // For local development
+        '127.0.0.1',                   // For local development
+        window.location.hostname       // Allow the domain the player is hosted on (for direct previews)
     ];
 
     try {
