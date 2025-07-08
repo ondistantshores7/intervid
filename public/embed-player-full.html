@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Interactive Video Player</title>
     <link rel="stylesheet" href="styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js" defer></script>
     <style>
         html, body {
             margin: 0;
@@ -133,13 +132,14 @@
 <body>
     <div id="preview-overlay">
         <div id="video-container">
-            <video id="preview-video" playsinline controls crossorigin="anonymous"></video>
+            <video id="preview-video" playsinline controls></video>
             <div class="preview-buttons-overlay"></div>
         </div>
     </div>
 
     <!-- Using the EXACT same player script as the preview function -->
-    <script src="js/player.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://intervid.pages.dev/js/player.js?v=latest"></script>
     
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
