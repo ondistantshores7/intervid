@@ -1,4 +1,44 @@
-console.log('Interactive Video Player script loaded!');
+(function() {
+    // --- Embed Security: Domain Locking ---
+    const allowedDomains = [
+        'threeminutetheory.com',
+        'learn.threeminutetheory.com',
+        'localhost',
+        '127.0.0.1',
+        window.location.hostname // Allow the domain the player is hosted on (for direct previews)
+    ];
+
+    try {
+        const topHostname = window.top.location.hostname;
+        const isAllowed = allowedDomains.some(domain => topHostname.endsWith(domain));
+
+        if (!isAllowed) {
+            console.error(`[Security] Embedding of this player is not allowed on ${topHostname}.`);
+            // Stop player initialization and show an error message.
+            document.addEventListener('DOMContentLoaded', () => {
+                const containers = document.querySelectorAll('[data-project]');
+                containers.forEach(container => {
+                    container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background-color:#000;color:#fff;font-family:sans-serif;">This content is not authorized to be displayed on this domain.</div>';
+                });
+            });
+            // Halt further script execution in this file.
+            throw new Error('Domain not allowed.');
+        }
+    } catch (e) {
+        // This error typically happens in a cross-origin iframe context.
+        // We will block it by default for security.
+        console.error('[Security] Could not verify top-level domain. Blocking for security.', e.message);
+        document.addEventListener('DOMContentLoaded', () => {
+            const containers = document.querySelectorAll('[data-project]');
+            containers.forEach(container => {
+                container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background-color:#000;color:#fff;font-family:sans-serif;">This content cannot be embedded.</div>';
+            });
+        });
+        throw new Error('Cross-origin embedding is not permitted.');
+    }
+
+    console.log('Interactive Video Player script loaded!');
+})();
 
 // Auto-initialize player when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
