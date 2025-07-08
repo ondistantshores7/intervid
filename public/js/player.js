@@ -616,7 +616,9 @@ class IVSPlayer {
         this.isLooping = false;
         // Determine if this node's end action is looping so buttons should persist
         const nodeObj = this.project.videos.find(n => n.id === nodeId) || this.currentNode;
-        this.persistentButtons = nodeObj?.endAction?.type === 'loop';
+        this.persistentButtons = (nodeObj?.endAction?.type === 'loop') ||
+            (nodeObj?.endAction?.type === 'node' && (nodeObj?.endAction?.targetNode === nodeObj.id || nodeObj?.endAction?.target === nodeObj.id));
+        console.log('[IVS DEBUG] persistentButtons', this.persistentButtons, 'for node', nodeId, 'endAction', nodeObj?.endAction);
 
         // Clear any existing timeouts
         this.clearAllButtonTimeouts();
@@ -1130,8 +1132,34 @@ class IVSPlayer {
     }
 
     handleVideoEnd() {
-        console.log('Video ended. Current node endAction:', this.currentNode.endAction);
         const endAction = this.currentNode.endAction;
+        const isSelfLoop = endAction && endAction.type === 'node' && (endAction.targetNode === this.currentNode.id || endAction.target === this.currentNode.id);
+        console.log('Video ended. Current node endAction:', endAction, 'isSelfLoop:', isSelfLoop);
+
+        if (isSelfLoop) {
+            this.loopCount++;
+            console.log(`[SELF LOOP] Looping video (${this.loopCount}/3)`);
+            if (this.loopCount < 3) {
+                this.videoEl.currentTime = 0;
+                this.videoEl.play().catch(e => console.error('Loop playback failed:', e));
+                return;
+            } else {
+                this.loopCount = 0;
+                const nextNodeId = this.findNextNodeId();
+                if (nextNodeId) {
+                    this.loadVideo(nextNodeId);
+                }
+                return;
+            }
+        }
+
+        // ----- existing logic below -----
+        // (self-loop handled above)
+        if (!endAction || !endAction.type) {
+            console.log('No end action defined or type is missing for node:', this.currentNode.id);
+            return;
+        }
+
 
         if (!endAction || !endAction.type) {
             console.log('No end action defined or type is missing for node:', this.currentNode.id);
