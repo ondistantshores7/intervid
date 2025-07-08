@@ -229,6 +229,7 @@ class IVSPlayer {
         this.hls = null;
         this.timeUpdateHandler = null;
         this.loopCount = 0; // Track number of loops for the current node
+        this.isLooping = false; // Flag to indicate loop playback in progress
         this.activeButtons = new Map(); // Track active buttons and their timeouts
         this.animatedButtons = new Set(); // Track which buttons have been animated in
 
@@ -612,6 +613,7 @@ class IVSPlayer {
     /* --------------------------------------------------- */
 
     loadVideo(nodeId, autoplay = true) {
+        this.isLooping = false;
         // Clear any existing timeouts
         this.clearAllButtonTimeouts();
         this.activeButtons.clear();
@@ -700,7 +702,7 @@ class IVSPlayer {
         this.currentNode.buttons.forEach(button => {
             const buttonEl = this.buttonsContainer.querySelector(`[data-button-id='${button.id}']`);
             const showTime = button.time;
-            const animateEnabled = button.animateOut?.enabled;
+                        const animateEnabled = this.isLooping ? false : button.animateOut?.enabled;
             const defaultVisibleDuration = 5;
             const endTime = animateEnabled ? showTime + (button.animateOut.delay || defaultVisibleDuration) : Number.POSITIVE_INFINITY;
 
@@ -1125,7 +1127,8 @@ class IVSPlayer {
 
         switch (endAction.type) {
             case 'loop':
-                this.loopCount++;
+                                this.loopCount++;
+                this.isLooping = true;
                 console.log(`Looping video (${this.loopCount}/3)`);
                 if (this.loopCount < 3) {
                     // If we haven't reached 3 loops, play again
