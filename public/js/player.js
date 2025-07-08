@@ -229,7 +229,7 @@ class IVSPlayer {
         this.hls = null;
         this.timeUpdateHandler = null;
         this.loopCount = 0; // Track number of loops for the current node
-        this.isLooping = false; // Flag to indicate loop playback in progress
+        this.persistentButtons = false; // when true, buttons stay visible across loops
         this.activeButtons = new Map(); // Track active buttons and their timeouts
         this.animatedButtons = new Set(); // Track which buttons have been animated in
 
@@ -614,6 +614,10 @@ class IVSPlayer {
 
     loadVideo(nodeId, autoplay = true) {
         this.isLooping = false;
+        // Determine if this node's end action is looping so buttons should persist
+        const nodeObj = this.project.videos.find(n => n.id === nodeId) || this.currentNode;
+        this.persistentButtons = nodeObj?.endAction?.type === 'loop';
+
         // Clear any existing timeouts
         this.clearAllButtonTimeouts();
         this.activeButtons.clear();
@@ -702,9 +706,9 @@ class IVSPlayer {
         this.currentNode.buttons.forEach(button => {
             const buttonEl = this.buttonsContainer.querySelector(`[data-button-id='${button.id}']`);
             const showTime = button.time;
-                        const animateEnabled = this.isLooping ? false : button.animateOut?.enabled;
+                                    const shouldAnimateOut = this.persistentButtons ? false : !!button.animateOut?.enabled;
             const defaultVisibleDuration = 5;
-            const endTime = animateEnabled ? showTime + (button.animateOut.delay || defaultVisibleDuration) : Number.POSITIVE_INFINITY;
+            const endTime = shouldAnimateOut ? showTime + (button.animateOut.delay || defaultVisibleDuration) : Number.POSITIVE_INFINITY;
 
             const buttonData = this.activeButtons.get(button.id);
             const hasAnimatedIn = this.animatedButtons.has(button.id);
@@ -716,12 +720,21 @@ class IVSPlayer {
             }
 
             // Handle button appearance
+            if (this.persistentButtons) {
+                // Always ensure button is visible once its show time has passed
+                if (isWithinShowTime && !buttonEl && !hasAnimatedIn) {
+                    const newBtn = this.createButton(button);
+                    this.animatedButtons.add(button.id);
+                    this.activeButtons.set(button.id, { buttonEl: newBtn, hasAnimatedOut: false });
+                }
+                return; // skip any animate-out logic when persistent
+            }
             if (isWithinShowTime && !buttonEl && !hasAnimatedIn) {
                 const newButtonEl = this.createButton(button);
                 this.animatedButtons.add(button.id);
                 
                 // If animate out is enabled, set a timeout to animate it out
-                if (button.animateOut?.enabled) {
+                if (shouldAnimateOut) {
                     const delayMs = (button.animateOut.delay || 5) * 1000;
                     const timeoutId = setTimeout(() => {
                         this.animateOutButton(button.id);
@@ -743,7 +756,7 @@ class IVSPlayer {
             }
             // Clean up buttons that are past their show time
             else if (!isWithinShowTime && buttonEl) {
-                if (button.animateOut?.enabled) {
+                if (shouldAnimateOut) {
                     // Do not remove here; animateOutButton will handle removal after the out animation completes
                     return;
                 }
@@ -1127,8 +1140,8 @@ class IVSPlayer {
 
         switch (endAction.type) {
             case 'loop':
-                                this.loopCount++;
-                this.isLooping = true;
+                                                this.loopCount++;
+                
                 console.log(`Looping video (${this.loopCount}/3)`);
                 if (this.loopCount < 3) {
                     // If we haven't reached 3 loops, play again
