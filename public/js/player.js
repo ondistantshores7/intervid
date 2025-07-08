@@ -7,15 +7,19 @@
         'mykajabi.com',                // Common Kajabi site domain for courses
         'localhost',                   // For local development
         '127.0.0.1',                   // For local development
-        window.location.hostname       // Allow the domain the player is hosted on (for direct previews)
+        // removed dynamic host
     ];
 
     try {
-        const topHostname = window.top.location.hostname;
-        const isAllowed = allowedDomains.some(domain => topHostname.endsWith(domain));
+                const selfHost = window.location.hostname;
+        let parentHost = '';
+        try { parentHost = new URL(document.referrer || '').hostname; } catch (_) {}
+        const isAllowedHost = (host) => allowedDomains.some(domain => host === domain || host.endsWith('.' + domain));
+        const allowed = isAllowedHost(selfHost) || (parentHost && isAllowedHost(parentHost));
+        // (replaced by new allowed logic above)
 
-        if (!isAllowed) {
-            console.error(`[Security] Embedding of this player is not allowed on ${topHostname}.`);
+        if (!allowed) {
+            console.error(`[Security] Embedding of this player is not allowed (selfHost=${selfHost}, parentHost=${parentHost}).`);
             // Stop player initialization and show an error message.
             document.addEventListener('DOMContentLoaded', () => {
                 const containers = document.querySelectorAll('[data-project]');
