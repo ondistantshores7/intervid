@@ -1,4 +1,4 @@
-// For local development, this key should match the one in wrangler.toml
+import { supabase } from './supabaseClient.js';
 
 // Utility to generate unique IDs with an optional prefix
 function generateId(prefix = '') {
@@ -8,37 +8,6 @@ function generateId(prefix = '') {
 window.ADMIN_API_KEY = "dev-key-123";
 
 document.addEventListener('DOMContentLoaded', () => {
-    const signOutButtons = document.querySelectorAll('.sign-out-btn');
-
-    const attachLogoutHandler = (btn) => {
-        if(!btn) return;
-        btn.addEventListener('click', async () => {
-            try {
-                const response = await fetch('/api/logout', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                });
-
-                const result = await response.json();
-
-                if (response.ok && result.success) {
-                    // On successful logout, redirect to the login page
-                    window.location.href = '/login';
-                } else {
-                    console.error('Logout failed:', result.message);
-                    alert('Logout failed. Please try again.');
-                }
-            } catch (error) {
-                console.error('Error during logout:', error);
-                alert('An error occurred during logout. Please try again.');
-            }
-        });
-    };
-
-    // Attach to all sign-out buttons (editor + dashboard)
-    signOutButtons.forEach(attachLogoutHandler);
 
     let isInitialized = false;
     if (isInitialized) {
@@ -60,7 +29,12 @@ document.addEventListener('DOMContentLoaded', () => {
             b = parseInt(hex[5] + hex[6], 16);
         }
         return `rgba(${r},${g},${b},${opacity})`;
-    };
+};
+
+// -- Auth helper: currently backend cookie is HttpOnly, so client cannot read it directly.
+// We return null for now to indicate "unknown" session status; login flows will manually
+// call updateAuthUI() once credentials are verified.
+const getSessionFromCookie = () => null;
 
     const getElement = (id) => {
         const element = document.getElementById(id);
@@ -172,6 +146,15 @@ const spreadOutBtn = getElement('spread-out-btn');
     const animateOutCheckbox = getElement('animate-out-checkbox');
     const animateOutOptions = document.querySelector('.animate-out-options');
     const nodeIsStartNodeCheckbox = getElement('node-is-start-node');
+    const authSection = getElement('auth-section');
+    const loginScreen = getElement('login-screen');
+    const loginForm = getElement('login-form');
+    const loginUsernameInput = getElement('login-username');
+    const loginPasswordInput = getElement('login-password');
+    const userStatusContainer = getElement('user-status');
+    const userEmailSpan = getElement('user-email');
+    const signOutBtn = getElement('sign-out-btn');
+    const editorSignOutBtn = getElement('editor-sign-out-btn');
 
     // Button Shadow Controls
     const buttonShadowEnable = getElement('button-shadow-enable');
@@ -201,78 +184,344 @@ const spreadOutBtn = getElement('spread-out-btn');
     let selectedButtonId = null;
     let draggedButtonElement = null;
     let hlsInstance = null;
+    let user = null;
 
     let undoStack = [];
     const MAX_UNDO_STEPS = 20;
 
-    const loadProjects = () => {
-        const loadedProjects = JSON.parse(localStorage.getItem('interactive-video-projects') || '[]');
-        return loadedProjects.map(project => ({
-            ...project,
-            startNodeId: project.startNodeId || null, // Ensure startNodeId exists, default to null
-            videos: project.videos || [], // Ensure videos array exists
-            connections: project.connections || [], // Ensure connections array exists
-            lastEdited: project.lastEdited || Date.now() // Ensure lastEdited timestamp
-        })).map(project => {
-            // Ensure all buttons have a duration
-            if (project.videos) {
-                project.videos.forEach(video => {
-                    if (video.buttons) {
-                        video.buttons.forEach(button => {
-                            if (!button.hasOwnProperty('duration') || typeof button.duration !== 'number' || button.duration <= 0) {
-                                button.duration = 5; // Default duration in seconds
-                            }
-                        });
-                    }
-                });
-            }
-            return project;
-        });
-    };
-    const saveProjects = () => {
-        // Update lastEdited timestamp for current project if applicable
-        if (currentProject) {
-            currentProject.lastEdited = Date.now();
+    // Function to save the current project
+    const saveCurrentProject = async () => {
+        if (!currentProject) {
+            console.error('No current project to save');
+            alert('No project to save. Please open or create a project first.');
+            return;
         }
-        localStorage.setItem('interactive-video-projects', JSON.stringify(projects));
+        try {
+            // Create a deep copy of the current project to ensure all changes are captured
+            const projectToSave = JSON.parse(JSON.stringify(currentProject));
+            await saveProjectToSupabase(projectToSave);
+            // Update the projects array with a deep copy to reflect the saved changes
+            const index = projects.findIndex(p => p.id === currentProject.id);
+            if (index !== -1) {
+                projects[index] = JSON.parse(JSON.stringify(currentProject));
+                console.log('Updated projects array with saved data');
+            } else {
+                projects.push(JSON.parse(JSON.stringify(currentProject)));
+                console.log('Added saved project to projects array');
+            }
+            // Reload projects from Supabase to ensure consistency
+            await loadProjectsFromSupabase();
+            alert('Project saved successfully!');
+        } catch (error) {
+            console.error('Failed to save project:', error);
+            alert('Failed to save project. Check console for details.');
+        }
     };
 
-    const renderProjects = (filter='') => {
+    // Autosave functionality with debounce
+    const AUTOSAVE_DELAY = 2000; // 2 seconds delay before autosaving
+    let autosaveTimeout = null;
+
+    const autosaveProject = () => {
+        if (autosaveTimeout) {
+            clearTimeout(autosaveTimeout);
+        }
+        autosaveTimeout = setTimeout(async () => {
+            console.log('Autosaving project...');
+            await saveCurrentProject();
+        }, AUTOSAVE_DELAY);
+    };
+
+    // --- Supabase Data Functions ---
+    const saveProjectToSupabase = async (project) => {
+        try {
+            console.log('Saving project to Supabase:', project.name);
+            const { data: userData, error } = await supabase.auth.getUser();
+            if (error) {
+                console.error('Error getting user:', error);
+                throw new Error('User not authenticated');
+            }
+            const user = userData.user;
+            console.log('Current user:', user.id);
+
+            // Only generate a new UUID if the project ID is not already a valid UUID
+            if (!isValidUUID(project.id)) {
+                console.log('Invalid UUID for project ID, generating a new one:', project.id);
+                project.id = generateUUID();
+                console.log('New project ID generated:', project.id);
+                if (currentProject && currentProject === project) {
+                    currentProject.id = project.id;
+                }
+            }
+
+            // Save project with user_id and a shared group_id for cross-user access
+            const projectData = {
+                id: project.id,
+                name: project.name,
+                project_data: project, // Use project_data column as per schema
+                user_id: user.id,
+                group_id: 'shared-group-intervid' // Hardcoded shared group ID
+            };
+
+            console.log('Upserting project data:', projectData);
+            const { data, error: projectError } = await supabase
+                .from('projects')
+                .upsert([projectData], { onConflict: ['id'] });
+
+            if (projectError) {
+                console.error('Error saving project to Supabase:', projectError);
+                throw projectError;
+            }
+
+            console.log('Project saved successfully:', data);
+            return data;
+        } catch (err) {
+            console.error('Error in saveProjectToSupabase:', err);
+            throw err;
+        }
+    };
+
+    const loadProjectsFromSupabase = async () => {
+        try {
+            console.log('Loading projects from Supabase using group_id.');
+            const { data: userData, error } = await supabase.auth.getUser();
+            if (error) {
+                console.error('Error getting user:', error);
+                if (error.name === 'AuthSessionMissingError') {
+                    console.log('User session missing, skipping project load.');
+                    return; // Exit early if no session
+                }
+                throw error;
+            }
+            const user = userData.user;
+            if (!user) {
+                console.error('No user found');
+                throw new Error('No user found');
+            }
+            // Use a shared group_id to load projects accessible to all users
+            const groupId = 'shared-group-intervid';
+            console.log('Loading projects for group_id:', groupId);
+            const { data, error: groupError } = await supabase
+                .from('projects')
+                .select('*')
+                .eq('group_id', groupId);
+
+            if (groupError) {
+                console.error('Error loading projects with group_id:', groupError);
+                throw groupError; // Not falling back to user_id to enforce shared database
+            } else {
+                console.log('Projects loaded with group_id:', data);
+                if (data && data.length > 0) {
+                    projects = data.map(item => {
+                        if (item.project_data) {
+                            return item.project_data;
+                        } else if (item.data) {
+                            return item.data;
+                        } else if (item.content) {
+                            return item.content;
+                        } else {
+                            console.warn('Unexpected project data structure:', item);
+                            return item;
+                        }
+                    });
+                } else {
+                    projects = [];
+                }
+            }
+
+            // Update UI with loaded projects
+            if (dashboardView) {
+                const projectList = dashboardView.querySelector('#project-list');
+                if (projectList) {
+                    projectList.innerHTML = '';
+                    if (projects.length === 0) {
+                        projectList.innerHTML = '<p>No projects found. Create a new one to get started.</p>';
+                    } else {
+                        projects.forEach(project => {
+                            const card = document.createElement('div');
+                            card.className = 'project-card';
+                            card.dataset.id = project.id;
+                            card.innerHTML = `
+                                <h3>${project.name}</h3>
+                                <button class="edit-btn">Edit</button>
+                                <button class="delete-btn danger">Delete</button>
+                            `;
+                            const editBtn = card.querySelector('.edit-btn');
+                            editBtn.onclick = () => navigateTo('editor', project.id);
+                            const deleteBtn = card.querySelector('.delete-btn');
+                            deleteBtn.onclick = () => deleteProject(project.id);
+                            projectList.appendChild(card);
+                        });
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Error loading projects:', err);
+            alert('Failed to load projects. Check console for details.');
+        }
+    };
+
+    const deleteProjectFromSupabase = async (projectId) => {
+        if (!user) {
+            console.log("User not logged in. Deleting from localStorage.");
+            let guestProjects = JSON.parse(localStorage.getItem('guest-projects') || '[]');
+            guestProjects = guestProjects.filter(p => p.id !== projectId);
+            localStorage.setItem('guest-projects', JSON.stringify(guestProjects));
+            return;
+        }
+
+        const { error } = await supabase
+            .from('projects')
+            .delete()
+            .eq('id', projectId);
+
+        if (error) {
+            console.error('Error deleting project:', error);
+            alert('Could not delete project from the cloud.');
+        }
+    };
+
+    // --- Supabase Auth Functions ---
+    const handleLogin = async (e) => {
+        e.preventDefault();
+        let username = loginUsernameInput.value.trim();
+        const password = loginPasswordInput.value;
+
+        // Map specific usernames to their corresponding emails for Supabase auth
+        if (username === 'ondistantshores') {
+            username = 'ondistantshores@optonline.net';
+        } else if (username === 'guest') {
+            username = 'musicgawronski@gmail.com';
+        }
+
+        try {
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: username,
+                password: password,
+            });
+
+            if (error) {
+                throw new Error(error.message || 'Login failed');
+            }
+
+            // successful login; Supabase client handles session cookie automatically
+            // UI update will be handled by onAuthStateChange
+        } catch(err) {
+            alert(err.message);
+            console.error(err);
+        }
+    };
+
+    const signOut = async () => {
+        try {
+            await supabase.auth.signOut(); // clear Supabase session (noop for guest)
+            await fetch('/api/logout', { method: 'POST' }); // clear worker cookie
+        } catch(err) {
+            console.warn('Sign-out encountered an issue', err);
+        }
+        updateAuthUI(null); // permanently switches UI back to login screen
+    };
+
+    const updateAuthUI = (session) => {
+        user = session && session.user ? session.user : null;
+        if (user) {
+            // ---- Logged-in: hide login screen, show dashboard ----
+            if (loginScreen) loginScreen.classList.remove('active');
+            navigateTo('dashboard');
+            userStatusContainer.style.display = 'flex';
+            userEmailSpan.textContent = user.email || '';
+        } else {
+            // ---- Logged-out: show full-screen login ----
+            navigateTo('login');
+            userStatusContainer.style.display = 'none';
+            userEmailSpan.textContent = '';
+        }
+        loadProjectsFromSupabase().then(() => {
+            renderProjects(projectSearchInput.value || '');
+        });
+    };
+
+    const renderProjects = (filter = '') => {
         const sortBy = projectSortSelect ? projectSortSelect.value : 'name';
         const container = getElement('projects-list');
-        if(!container) return;
-        container.innerHTML='';
+        if (!container) return;
+        container.innerHTML = '';
         const list = [...projects];
-        list.sort((a,b)=>{
-            if(sortBy==='edited'){
-                return (b.lastEdited||0) - (a.lastEdited||0); // newest first
+
+        list.sort((a, b) => {
+            if (sortBy === 'edited') {
+                const dateA = a.updated_at ? new Date(a.updated_at) : new Date(a.lastEdited || 0);
+                const dateB = b.updated_at ? new Date(b.updated_at) : new Date(b.lastEdited || 0);
+                return dateB - dateA; // newest first
             }
-            return (a.name||'').localeCompare(b.name||'');
+            return (a.name || '').localeCompare(b.name || '');
         });
-        list.filter(p=>p.name.toLowerCase().includes(filter.toLowerCase())).forEach(project=>{
-            const card=document.createElement('div');
-            card.className='project-card';
-            card.innerHTML=`<h3>${project.name}</h3><p>${project.videos.length} videos</p><p class="project-date">Edited: ${project.lastEdited ? new Date(project.lastEdited).toLocaleDateString() : '—'}</p>`;
-            const editBtn=document.createElement('button');editBtn.textContent='Edit';editBtn.onclick=()=>navigateTo('editor',project.id);
-            const renameBtn=document.createElement('button');renameBtn.textContent='Rename';renameBtn.onclick=()=>{
-                const newName=prompt('Enter new project name:',project.name);
-                if(newName && newName.trim()){
-                    project.name=newName.trim();
-                    saveProjects();
+
+        list
+            .filter(p => p.name.toLowerCase().includes(filter.toLowerCase()))
+            .forEach(project => {
+                const card = document.createElement('div');
+                card.className = 'project-card';
+                const projectDate = project.updated_at
+                    ? new Date(project.updated_at).toLocaleDateString()
+                    : project.lastEdited
+                        ? new Date(project.lastEdited).toLocaleDateString()
+                        : '—';
+                card.innerHTML = `<h3>${project.name}</h3><p>${(project.videos || []).length} videos</p><p class="project-date">Edited: ${projectDate}</p>`;
+
+                /* ----- Buttons ----- */
+                const editBtn = document.createElement('button');
+                editBtn.textContent = 'Edit';
+                editBtn.onclick = () => navigateTo('editor', project.id);
+
+                const renameBtn = document.createElement('button');
+                renameBtn.textContent = 'Rename';
+                renameBtn.onclick = async () => {
+                    const newName = prompt('Enter new project name:', project.name);
+                    if (newName && newName.trim()) {
+                        project.name = newName.trim();
+                        await saveProjectToSupabase(project);
+                        await loadProjectsFromSupabase();
+                        renderProjects(projectSearchInput.value);
+                    }
+                };
+
+                const dupBtn = document.createElement('button');
+                dupBtn.textContent = 'Duplicate';
+                dupBtn.onclick = async () => {
+                    const copy = JSON.parse(JSON.stringify(project));
+                    // assign new id
+                    copy.id = (window.crypto && crypto.randomUUID)
+                        ? crypto.randomUUID()
+                        : `p-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                    copy.name = `${project.name} copy`;
+                    copy.lastEdited = Date.now();
+                    await saveProjectToSupabase(copy);
+                    await loadProjectsFromSupabase();
                     renderProjects(projectSearchInput.value);
-                }
-            };
-            const dupBtn=document.createElement('button');dupBtn.textContent='Duplicate';dupBtn.onclick=()=>{const copy=JSON.parse(JSON.stringify(project));copy.id=generateId('project-');copy.name=project.name+' copy';copy.lastEdited=Date.now();projects.push(copy);saveProjects();renderProjects(projectSearchInput.value);} ;
-            const delBtn=document.createElement('button');delBtn.textContent='Delete';delBtn.className='danger';delBtn.onclick=()=>{if(confirm('Delete project?')){projects=projects.filter(p=>p.id!==project.id);saveProjects();renderProjects(projectSearchInput.value);} };
-            card.append(editBtn, renameBtn, dupBtn, delBtn);
-            container.appendChild(card);
-        });
+                };
+
+                const delBtn = document.createElement('button');
+                delBtn.textContent = 'Delete';
+                delBtn.className = 'danger';
+                delBtn.onclick = async () => {
+                    if (confirm('Are you sure you want to delete this project?')) {
+                        await deleteProjectFromSupabase(project.id);
+                        await loadProjectsFromSupabase();
+                        renderProjects(projectSearchInput.value);
+                    }
+                };
+
+                card.append(editBtn, renameBtn, dupBtn, delBtn);
+                container.appendChild(card);
+            });
     };
 
     const renderNodes = () => {
         nodesContainer.innerHTML = '';
         if (!currentProject) return;
         currentProject.videos.forEach(node => {
+            // Duplicate nodeEl block removed
             const nodeEl = document.createElement('div');
             nodeEl.className = 'video-node';
             nodeEl.dataset.id = node.id;
@@ -280,20 +529,19 @@ const spreadOutBtn = getElement('spread-out-btn');
             nodeEl.style.top = node.y || '0px';
             nodeEl.dataset.nodeId = node.id;
 
+            if (selectedNodeId && selectedNodeId !== node.id) {
+                const previouslySelectedElement = document.querySelector(`.video-node[data-node-id='${selectedNodeId}']`);
+                if (previouslySelectedElement) {
+                    previouslySelectedElement.classList.remove('node-selected');
+                }
+            }
+
             if (node.id === selectedNodeId) {
                 nodeEl.classList.add('node-selected');
             }
 
             nodeEl.addEventListener('click', (event) => {
                 event.stopPropagation(); // Prevent click from propagating to dashboard if nodes are ever nested
-
-                // Deselect previously selected node
-                if (selectedNodeId && selectedNodeId !== node.id) {
-                    const previouslySelectedElement = document.querySelector(`.video-node[data-node-id='${selectedNodeId}']`);
-                    if (previouslySelectedElement) {
-                        previouslySelectedElement.classList.remove('node-selected');
-                    }
-                }
 
                 // Toggle selection for the current node
                 if (selectedNodeId === node.id) {
@@ -314,15 +562,16 @@ const spreadOutBtn = getElement('spread-out-btn');
                 console.log('Selected node ID:', selectedNodeId);
             });
 
+            // Set node label
             nodeEl.innerHTML = `<h4>${node.name}</h4>`;
             // connectors
             const inputDot=document.createElement('div');inputDot.className='node-input';inputDot.dataset.nodeTarget=node.id;
             const outputDot=document.createElement('div');outputDot.className='node-output';outputDot.dataset.nodeSource=node.id;
             outputDot.addEventListener('mousedown',startConnectionDrag);
             inputDot.addEventListener('mouseup',finishConnectionDrag);
-            nodeEl.append(inputDot,outputDot);
+            nodeEl.append(inputDot, outputDot);
             nodesContainer.appendChild(nodeEl);
-        });
+        }); // end forEach
         renderConnections();
     };
 
@@ -364,7 +613,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                 const buttonStartTime = button.time || 0;
                 let buttonDuration = getButtonEffectiveDuration(button, nodeVideoPreview.duration);
                 if (buttonDuration <= 0) {
-                    buttonDuration = 0.1; 
+                    buttonDuration = 0.1; // Ensure positive duration
                 }
                 const buttonEndTime = buttonStartTime + buttonDuration;
 
@@ -554,7 +803,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                 const newYPercent = (finalY / containerRect.height) * 100;
 
                 button.position = { x: `${newXPercent.toFixed(2)}%`, y: `${newYPercent.toFixed(2)}%` };
-                saveProjects();
+                if (currentProject) saveProjectToSupabase(currentProject);
 
                 if (button.id === selectedButtonId) {
                     buttonPosXInput.value = finalX.toFixed(0);
@@ -640,7 +889,7 @@ const spreadOutBtn = getElement('spread-out-btn');
             button.style.height = `${heightPct.toFixed(2)}%`;
             button.position.x = `${leftPct.toFixed(2)}%`;
             button.position.y = `${topPct.toFixed(2)}%`;
-            saveProjects();
+            if (currentProject) saveProjectToSupabase(currentProject);
             renderButtons();
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onEnd);
@@ -694,8 +943,11 @@ const spreadOutBtn = getElement('spread-out-btn');
                     let buttonDurationForOverlay = getButtonEffectiveDuration(buttonData, nodeVideoPreview.duration);
                     if (buttonDurationForOverlay <= 0) buttonDurationForOverlay = 0.1;
                     const keepSelectedVisible = nodeVideoPreview.paused;
-                    const shouldShow = (nodeVideoPreview.currentTime >= buttonStartTimeForOverlay && nodeVideoPreview.currentTime < (buttonStartTimeForOverlay + buttonDurationForOverlay)) || (keepSelectedVisible && buttonData.id === selectedButtonId);
-                    displayState = shouldShow ? 'block' : 'none';
+                    const shouldShow = (nodeVideoPreview.currentTime >= buttonStartTimeForOverlay && nodeVideoPreview.currentTime < buttonStartTimeForOverlay + buttonDurationForOverlay) || (keepSelectedVisible && buttonData.id === selectedButtonId);
+                    
+                    // Set display and centering for text buttons
+                    const displayValue = buttonData.linkType === 'embed' ? 'block' : 'flex';
+                    displayState = shouldShow ? displayValue : 'none';
                 }
 
                 btn.style.display = displayState;
@@ -720,26 +972,81 @@ const spreadOutBtn = getElement('spread-out-btn');
 
     // ---- Navigation ----
     const navigateTo = (view, projectId = null) => {
-        document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
-        if (view === 'dashboard') {
-            if(dashboardView) dashboardView.classList.add('active');
+        console.log('Navigating to view:', view);
+        document.querySelectorAll('.view-section').forEach(s => {
+            console.log('Removing active from:', s.id, 'with class:', s.className);
+            s.classList.remove('active');
+            s.style.display = 'none';
+            s.style.visibility = 'hidden';
+            s.style.opacity = '0';
+        });
+        if (view === 'login') {
+            const loginView = getElement('login-screen');
+            if(loginView) {
+                console.log('Found login view, adding active class');
+                loginView.classList.add('active');
+                loginView.style.display = 'block';
+                loginView.style.visibility = 'visible';
+                loginView.style.opacity = '1';
+            } else {
+                console.error('Login view not found');
+            }
+        } else if (view === 'dashboard') {
+            if(dashboardView) {
+                console.log('Found dashboard view, adding active class, ID:', dashboardView.id, 'Class:', dashboardView.className);
+                dashboardView.classList.add('active');
+                dashboardView.style.display = 'block';
+                dashboardView.style.visibility = 'visible';
+                dashboardView.style.opacity = '1';
+                console.log('Dashboard active class added, style set to block, visibility: visible, opacity: 1');
+                // Double-check login screen is hidden
+                const loginView = getElement('login-screen');
+                if(loginView) {
+                    loginView.classList.remove('active');
+                    loginView.style.display = 'none';
+                    loginView.style.visibility = 'hidden';
+                    loginView.style.opacity = '0';
+                    console.log('Login screen explicitly hidden');
+                }
+            } else {
+                console.error('Dashboard view not found');
+            }
             currentProject = null;
             selectedNodeId = null;
             if(duplicateNodeBtn) duplicateNodeBtn.disabled = true;
             if(deleteNodeBtn) deleteNodeBtn.disabled = true;
-            closeNodeEditor(); // Ensure editor panels are closed
-            closeButtonEditor();
-        } else if (view === 'editor') {
-            if(editorView) editorView.classList.add('active');
-            currentProject = projects.find(p => p.id === projectId);
-            window.currentProject = currentProject;
-            if (!currentProject) {
-                console.error('Project not found:', projectId, 'Navigating to dashboard.');
-                return navigateTo('dashboard');
+            try {
+                closeNodeEditor();
+            } catch (e) {
+                console.log('Error closing editor panels, likely not defined yet:', e.message);
             }
-            if(projectTitleEditor && currentProject) projectTitleEditor.textContent = currentProject.name;
-            renderNodes();
-            renderConnections();
+        } else if (view === 'editor') {
+            const editorView = getElement('editor');
+            if(editorView) {
+                console.log('Found editor view, adding active class');
+                editorView.classList.add('active');
+                editorView.style.display = 'block';
+                editorView.style.visibility = 'visible';
+                editorView.style.opacity = '1';
+                addSaveButton();
+                if (projectId) {
+                    const project = projects.find(p => p.id === projectId);
+                    if (project) {
+                        currentProject = JSON.parse(JSON.stringify(project)); // Deep copy to avoid reference issues
+                        console.log('Editing project:', project.name, 'ID:', project.id);
+                        updateProjectDisplay(currentProject);
+                    } else {
+                        console.error('Project not found:', projectId);
+                        alert('Project not found. Returning to dashboard.');
+                        navigateTo('dashboard');
+                        return;
+                    }
+                } else {
+                    console.warn('No project ID provided for editor view');
+                }
+            } else {
+                console.error('Editor view not found');
+            }
         } else {
             console.warn('Unknown view:', view, 'Navigating to dashboard.');
             navigateTo('dashboard');
@@ -897,7 +1204,11 @@ const spreadOutBtn = getElement('spread-out-btn');
                 console.log(`Edit Node Video Dimensions: ${videoEl.clientWidth}w x ${videoEl.clientHeight}h`);
             }
         }, 100);
-        closeButtonEditor(); 
+        try {
+            closeButtonEditor();
+        } catch (e) {
+            console.log('Error closing button editor, likely not defined yet:', e.message);
+        }
 
         if (nodeIsStartNodeCheckbox) {
             nodeIsStartNodeCheckbox.checked = currentProject.startNodeId === nodeId;
@@ -942,6 +1253,11 @@ const spreadOutBtn = getElement('spread-out-btn');
     };
 
     const setupEventListeners = () => {
+        // Auth Listeners
+        if(loginForm) loginForm.addEventListener('submit', handleLogin);
+        if(signOutBtn) signOutBtn.addEventListener('click', signOut);
+        if(editorSignOutBtn) editorSignOutBtn.addEventListener('click', signOut);
+
         // Re-render buttons on window resize to adjust for scaling
         window.addEventListener('resize', renderButtons);
 
@@ -951,18 +1267,18 @@ const spreadOutBtn = getElement('spread-out-btn');
             const project = { id: generateId('project-'), name, videos: [], connections: [], lastEdited: Date.now() };
             project.lastEdited = Date.now();
             projects.push(project);
-            saveProjects();
+            if (currentProject) saveProjectToSupabase(currentProject);
             renderProjects();
             navigateTo('editor', project.id);
         });
-        backToDashboardBtn.addEventListener('click', () => { saveProjects(); navigateTo('dashboard');});
+        backToDashboardBtn.addEventListener('click', () => { if (currentProject) saveProjectToSupabase(currentProject); navigateTo('dashboard');});
         addVideoBtn.addEventListener('click', () => {
             const name = prompt('Enter node name:');
             if (!name || !currentProject) return;
             pushToUndoStack(); // Save state before adding new node
             const node = { id: `node-${Date.now()}`, name, url: '', buttons: [], x: '50px', y: '50px' };
             currentProject.videos.push(node);
-            saveProjects();
+            if (currentProject) saveProjectToSupabase(currentProject);
             renderNodes();
             openNodeEditor(node.id);
         });
@@ -976,7 +1292,7 @@ const spreadOutBtn = getElement('spread-out-btn');
             if (node) {
                 pushToUndoStack(); // Save state before changing node name
                 node.name = e.target.value;
-                saveProjects();
+                if (currentProject) saveProjectToSupabase(currentProject);
                 renderNodes();
             }
         });
@@ -986,7 +1302,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                 pushToUndoStack(); // Save state before changing node URL
                 node.url = e.target.value;
                 loadVideo(nodeVideoPreview, node.url);
-                saveProjects();
+                if (currentProject) saveProjectToSupabase(currentProject);
             }
         });
         addButtonBtn.addEventListener('click', () => {
@@ -1004,7 +1320,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                     } };
             if (!node.buttons) node.buttons = [];
             node.buttons.push(newButton);
-            saveProjects();
+            if (currentProject) saveProjectToSupabase(currentProject);
             renderButtons();
             selectButton(newButton.id);
         });
@@ -1056,7 +1372,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                     targetNode.buttons.push(cloned);
                 });
 
-                saveProjects();
+                if (currentProject) saveProjectToSupabase(currentProject);
                 renderButtons();
                 populateImportDropdown(); // refresh list (so user can import again if desired)
 
@@ -1128,11 +1444,8 @@ const spreadOutBtn = getElement('spread-out-btn');
             }
         });
 
-        if (animateOutCheckbox && animateOutOptions) {
-            animateOutCheckbox.addEventListener('change', function () {
-                animateOutOptions.style.display = this.checked ? 'block' : 'none';
-                updateButtonFromEditor();
-            });
+        if (animateOutCheckbox && animateOutOptions) { // Ensure animate out options visibility is correct
+             animateOutOptions.style.display = animateOutCheckbox.checked ? 'block' : 'none';
         }
 
         if (buttonShadowEnable && shadowOptionsContainer) {
@@ -1193,7 +1506,7 @@ const spreadOutBtn = getElement('spread-out-btn');
         if (deleteButtonBtn) deleteButtonBtn.addEventListener('click', () => {
             if (!selectedButtonId || !selectedNodeId || !currentProject) return;
             // Push to stack *before* confirm, but pop if cancelled
-            pushToUndoStack();
+            pushToUndoStack(); // Save state before deleting button
             if (!confirm('Are you sure you want to delete this button? This action can be undone.')) {
                 undoStack.pop(); // Remove the state pushed for this aborted action
                 updateUndoButtons(); // Reflect that the stack might be empty now
@@ -1202,8 +1515,12 @@ const spreadOutBtn = getElement('spread-out-btn');
             const node = currentProject.videos.find(v => v.id === selectedNodeId);
             if (node) {
                 node.buttons = node.buttons.filter(b => b.id !== selectedButtonId);
-                saveProjects();
-                closeButtonEditor();
+                if (currentProject) saveProjectToSupabase(currentProject);
+                try {
+                    closeButtonEditor();
+                } catch (e) {
+                    console.log('Error closing button editor, likely not defined yet:', e.message);
+                }
                 renderButtons();
             }
         });
@@ -1223,20 +1540,19 @@ const spreadOutBtn = getElement('spread-out-btn');
                 if (!selectedNodeId || !selectedButtonId || !currentProject) return;
                 const node = currentProject.videos.find(v => v.id === selectedNodeId);
                 if (!node) return;
-                const btn = node.buttons.find(b => b.id === selectedButtonId);
-                if (!btn) return;
                 pushToUndoStack();
+
                 if (buttonAtEndCheckbox.checked) {
                     const vidDur = nodeVideoPreview.duration || 0;
-                    btn.time = vidDur > 0 ? Math.max(0, vidDur - 0.1) : 0;
+                    button.time = vidDur > 0 ? Math.max(0, vidDur - 0.1) : 0;
                     buttonTimeInput.disabled = true;
                 } else {
                     buttonTimeInput.disabled = false;
                 }
-                buttonTimeInput.value = btn.time || 0;
-                saveProjects();
+                buttonTimeInput.value = button.time || 0;
+                if (currentProject) saveProjectToSupabase(currentProject);
                 renderButtons();
-                selectButton(btn.id);
+                selectButton(button.id);
             });
         }
 
@@ -1246,7 +1562,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                 const newName = prompt('Enter new project name:', currentProject.name);
                 if (newName && newName.trim()) {
                     currentProject.name = newName.trim();
-                    saveProjects();
+                    if (currentProject) saveProjectToSupabase(currentProject);
                     projectTitleEditor.textContent = currentProject.name;
                     renderProjects(projectSearchInput.value);
                 }
@@ -1274,10 +1590,14 @@ const spreadOutBtn = getElement('spread-out-btn');
         if(duplicateNodeBtn) duplicateNodeBtn.addEventListener('click', duplicateSelectedNode);
         if(deleteNodeBtn) deleteNodeBtn.addEventListener('click', deleteSelectedNode);
 
+        if(signOutBtn) {
+            signOutBtn.addEventListener('click', signOut);
+        }
+
         if(themeToggle) {
             themeToggle.addEventListener('change', () => {
                 document.body.classList.toggle('dark-mode', themeToggle.checked);
-                document.body.classList.toggle('light-mode', !themeToggle.checked);
+                localStorage.setItem('theme', themeToggle.checked ? 'dark' : 'light');
             });
         }
 
@@ -1295,7 +1615,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                         currentProject.startNodeId = null;
                     }
                 }
-                saveProjects();
+                if (currentProject) saveProjectToSupabase(currentProject);
                 renderNodes();
             });
         }
@@ -1323,7 +1643,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                 node.endAction = newAction;
 
                 updateEndActionVisibility();
-                saveProjects();
+                if (currentProject) saveProjectToSupabase(currentProject);
                 renderConnections();
             });
         }
@@ -1334,7 +1654,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                 if (!node || !node.endAction || node.endAction.type !== 'node') return;
                 pushToUndoStack();
                 node.endAction.target = this.value;
-                saveProjects();
+                if (currentProject) saveProjectToSupabase(currentProject);
                 renderConnections();
             });
         }
@@ -1345,7 +1665,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                 if (!node || !node.endAction || node.endAction.type !== 'url') return;
                 pushToUndoStack(); // Save state before changing end action target URL
                 node.endAction.target = nodeEndTargetUrlInput.value;
-                saveProjects();
+                if (currentProject) saveProjectToSupabase(currentProject);
             });
         }
     };
@@ -1376,8 +1696,6 @@ const spreadOutBtn = getElement('spread-out-btn');
             e.target === buttonPosYInput ||
             e.target === buttonWidthInput ||
             e.target === buttonHeightInput ||
-            e.target === buttonTextInput ||
-            e.target === buttonTimeInput ||
             e.target === fontSizeInputEl ||
             e.target === paddingInputEl
         );
@@ -1436,10 +1754,10 @@ const spreadOutBtn = getElement('spread-out-btn');
         button.shadow.enabled = buttonShadowEnable ? buttonShadowEnable.checked : false;
         button.shadow.color = buttonShadowColor ? buttonShadowColor.value : '#000000';
         button.shadow.opacity = buttonShadowOpacity ? parseFloat(buttonShadowOpacity.value) : 0.5;
-        button.shadow.hOffset = buttonShadowHOffset ? parseInt(buttonShadowHOffset.value) : 2;
-        button.shadow.vOffset = buttonShadowVOffset ? parseInt(buttonShadowVOffset.value) : 2;
-        button.shadow.blur = buttonShadowBlur ? parseInt(buttonShadowBlur.value) : 4;
-        button.shadow.spread = buttonShadowSpread ? parseInt(buttonShadowSpread.value) : 0;
+        button.shadow.hOffset = buttonShadowHOffset ? parseInt(buttonShadowHOffset.value) || 2 : 2;
+        button.shadow.vOffset = buttonShadowVOffset ? parseInt(buttonShadowVOffset.value) || 2 : 2;
+        button.shadow.blur = buttonShadowBlur ? parseInt(buttonShadowBlur.value) || 4 : 4;
+        button.shadow.spread = buttonShadowSpread ? parseInt(buttonShadowSpread.value) || 0 : 0;
         // Update opacity
         if (buttonOpacitySlider) style.opacity = buttonOpacitySlider.value.toString();
 
@@ -1448,7 +1766,11 @@ const spreadOutBtn = getElement('spread-out-btn');
         if (buttonElementForShadow) {
             if (button.shadow.enabled) {
                 const rgbaColor = hexToRgba(button.shadow.color, button.shadow.opacity);
-                buttonElementForShadow.style.boxShadow = `${button.shadow.hOffset}px ${button.shadow.vOffset}px ${button.shadow.blur}px ${button.shadow.spread}px ${rgbaColor}`;
+                const hOffset = (parseFloat(button.shadow.hOffset) || 0) * scaleFactor;
+                const vOffset = (parseFloat(button.shadow.vOffset) || 0) * scaleFactor;
+                const blur = (parseFloat(button.shadow.blur) || 5) * scaleFactor;
+                const spread = (parseFloat(button.shadow.spread) || 0) * scaleFactor;
+                buttonElementForShadow.style.boxShadow = `${hOffset}px ${vOffset}px ${blur}px ${spread}px ${rgbaColor}`;
             } else {
                 buttonElementForShadow.style.boxShadow = 'none';
             }
@@ -1457,17 +1779,15 @@ const spreadOutBtn = getElement('spread-out-btn');
         // Only update position and size if the related inputs were changed
         if (needsFullRender) {
             const containerRect = nodeVideoButtonsOverlay.getBoundingClientRect();
-            if (containerRect.width > 0 && containerRect.height > 0) {
-                const xPercent = (parseFloat(buttonPosXInput.value) / containerRect.width) * 100;
-                const yPercent = (parseFloat(buttonPosYInput.value) / containerRect.height) * 100;
-                const widthPercent = (parseFloat(buttonWidthInput.value) / containerRect.width) * 100;
-                const heightPercent = (parseFloat(buttonHeightInput.value) / containerRect.height) * 100;
-
-                button.position.x = `${Math.max(0, Math.min(xPercent, 100)).toFixed(2)}%`;
-                button.position.y = `${Math.max(0, Math.min(yPercent, 100)).toFixed(2)}%`;
-                button.style.width = `${Math.max(1, Math.min(widthPercent, 100)).toFixed(2)}%`;
-                button.style.height = `${Math.max(1, Math.min(heightPercent, 100)).toFixed(2)}%`;
-            }
+            const x = button.position ? parseFloat(button.position.x) || 40 : 40;
+            const y = button.position ? parseFloat(button.position.y) || 80 : 80;
+            const width = button.style.width ? parseFloat(button.style.width) : 20;
+            const height = button.style.height ? parseFloat(button.style.height) : 10;
+            
+            button.position.x = `${(x / 100 * containerRect.width).toFixed(2)}%`;
+            button.position.y = `${(y / 100 * containerRect.height).toFixed(2)}%`;
+            button.style.width = `${(width / 100 * containerRect.width).toFixed(2)}%`;
+            button.style.height = `${(height / 100 * containerRect.height).toFixed(2)}%`;
         }
 
         // Update style properties without affecting dimensions
@@ -1512,7 +1832,7 @@ const spreadOutBtn = getElement('spread-out-btn');
         style.position = 'absolute';
 
         // Persist changes before potentially re-rendering
-        saveProjects();
+        if (currentProject) saveProjectToSupabase(currentProject);
 
         // If a full redraw is needed (fontSize, padding, position, etc.), do it now and return early
         if (needsFullRender) {
@@ -1682,15 +2002,6 @@ const spreadOutBtn = getElement('spread-out-btn');
         renderButtons();
     };
 
-    const closeButtonEditor = () => {
-        buttonEditorPanel.classList.add('hidden');
-        if (animateOutCheckbox && animateOutOptions) { // Ensure animate out options visibility is correct
-             animateOutOptions.style.display = animateOutCheckbox.checked ? 'block' : 'none';
-        }
-        selectedButtonId = null;
-        renderButtons();
-    };
-
 const duplicateSelectedButton = () => {
     if (!selectedNodeId || !selectedButtonId || !currentProject) {
         console.warn('No button or node selected for duplication.');
@@ -1723,7 +2034,7 @@ const duplicateSelectedButton = () => {
     newButton.position.y = `${(currentY + 2)}%`;
 
     node.buttons.push(newButton);
-    saveProjects();
+    if (currentProject) saveProjectToSupabase(currentProject);
     renderButtons(); 
     selectButton(newButton.id);
     
@@ -1761,7 +2072,7 @@ const duplicateSelectedButton = () => {
             if (node) {
                 node.x = draggedNode.style.left;
                 node.y = draggedNode.style.top;
-                saveProjects();
+                if (currentProject) saveProjectToSupabase(currentProject);
                 renderConnections(); // Redraw lines after node moves
             }
             draggedNode = null;
@@ -1804,7 +2115,7 @@ const startConnectionDrag=(e)=>{
                     pushToUndoStack(); // Save state before adding/modifying connection
                     if(!currentProject.connections) currentProject.connections=[];
                     currentProject.connections.push({from:connectionDragSrc,to:dstId});
-                    saveProjects();
+                    if (currentProject) saveProjectToSupabase(currentProject);
                 }
             }
             renderConnections();
@@ -1867,7 +2178,7 @@ const finishConnectionDrag = (e) => {
                     updateEndActionVisibility();
                 }
             }
-            saveProjects(); // Persist changes
+            if (currentProject) saveProjectToSupabase(currentProject); // Persist changes
         }
         renderConnections(); // Update visuals
     }
@@ -1909,7 +2220,7 @@ const finishConnectionDrag = (e) => {
                 console.log('Clicked path data-index:', event.target.dataset.index);
                 if(confirm('Delete this connection?')){
                     currentProject.connections.splice(i,1);
-                    saveProjects();
+                    if (currentProject) saveProjectToSupabase(currentProject);
                     renderConnections();
                 }
             });
@@ -1968,7 +2279,7 @@ const finishConnectionDrag = (e) => {
                             if(srcNode && srcNode.endAction){
                                 pushToUndoStack();
                                 srcNode.endAction = { type: 'none', target: null };
-                                saveProjects();
+                                if (currentProject) saveProjectToSupabase(currentProject);
                                 renderConnections();
                             }
                         }
@@ -1996,31 +2307,102 @@ const finishConnectionDrag = (e) => {
     };
 
 
-    const init = () => {
-        projects = loadProjects(); // projects array is now initialized with startNodeId
-        renderProjects();
-        setupNodeDragging();
+    const init = async () => {
         setupEventListeners();
-        updateUndoButtons(); // Initialize button states
+        setupNodeDragging();
 
-        // Attach event listeners for Undo buttons
-        if (undoMainBtn) undoMainBtn.addEventListener('click', handleUndo);
-        if (undoNodePanelBtn) undoNodePanelBtn.addEventListener('click', handleUndo);
+        // Set theme from localStorage
+        if (themeToggle) {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                themeToggle.checked = savedTheme === 'dark';
+                document.body.classList.toggle('dark-mode', themeToggle.checked);
+            }
+        }
 
-        // Logic to potentially load a specific project if ID is in URL (example)
+        // Listen for Supabase auth events to handle login/logout
+        supabase.auth.onAuthStateChange((event, session) => {
+            console.log(`Auth event: ${event}`);
+            updateAuthUI(session);
+            if (event === 'SIGNED_IN') {
+                navigateTo('dashboard');
+            } else if (event === 'SIGNED_OUT') {
+                navigateTo('login');
+            }
+        });
+
+        // Check for an active session when the page loads
+        const { data: { session } } = await supabase.auth.getSession();
+        updateAuthUI(session);
+
         const urlParams = new URLSearchParams(window.location.search);
-        const projectIdFromUrl = urlParams.get('projectId');
-        if (projectIdFromUrl) {
-            const projectToLoad = projects.find(p => p.id === projectIdFromUrl);
-            if (projectToLoad) {
-                navigateTo('editor', projectIdFromUrl);
+        const projectId = urlParams.get('project');
+
+        if (session) {
+            console.log('User is logged in. Navigating to dashboard or project.');
+            if (projectId) {
+                navigateTo('editor', projectId);
             } else {
-                console.warn('Project ID from URL not found, navigating to dashboard.');
                 navigateTo('dashboard');
             }
         } else {
-            navigateTo('dashboard'); // Default to dashboard if no project ID in URL
+            console.log('User not logged in. Showing login screen.');
+            navigateTo('login');
         }
+
+        updateUndoButtons();
+    };
+
+    const updateProjectDisplay = (project) => {
+        console.log('Updating project display in editor', project);
+        if (!project) {
+            console.error('No project provided for display update');
+            return;
+        }
+        let data = project;
+        if (project.project_data) {
+            data = project.project_data;
+        } else if (project.data) {
+            data = project.data;
+        } else if (project.content) {
+            data = project.content;
+        }
+        console.log('Project data for display:', data);
+        let nodes = [];
+        if (data.nodes) {
+            nodes = data.nodes;
+        } else if (data.videos) {
+            nodes = data.videos;
+            console.log('Using videos as nodes for display');
+        } else {
+            console.error('No nodes or videos in project data', data);
+            return;
+        }
+        
+        // Ensure editorContent is defined
+        let editorContent = window.editorContent || document.querySelector('#nodes-container');
+        if (!editorContent) {
+            console.log('Editor content container not found initially, retrying after delay. DOM state:', document.body.innerHTML.substring(0, 200) + '...');
+            setTimeout(() => {
+                editorContent = document.querySelector('#nodes-container');
+                if (!editorContent) {
+                    console.error('Editor content container still not found after delay');
+                    // As a fallback, render nodes and connections directly
+                    renderNodes();
+                    renderConnections();
+                    console.log('Fallback rendering attempted without editor container');
+                } else {
+                    console.log('Editor content container found after delay:', editorContent);
+                    renderNodes();
+                    renderConnections();
+                    console.log('Rendered nodes after delay');
+                }
+            }, 500);
+            return;
+        }
+        console.log('Editor content container found:', editorContent);
+        renderNodes();
+        renderConnections();
     };
 
     const deleteSelectedNode = () => {
@@ -2064,7 +2446,7 @@ const finishConnectionDrag = (e) => {
             if(deleteNodeBtn) deleteNodeBtn.disabled = true;
         }
 
-        saveProjects();
+        if (currentProject) saveProjectToSupabase(currentProject);
         renderNodes();
         renderConnections();
         // updateUndoButtons(); // Not needed here as handleUndo does it.
@@ -2106,7 +2488,7 @@ const finishConnectionDrag = (e) => {
         }
 
         currentProject.videos.push(newNode);
-        saveProjects();
+        if (currentProject) saveProjectToSupabase(currentProject);
 
         selectedNodeId = newNode.id; // Select the new node
         renderNodes(); 
@@ -2163,7 +2545,7 @@ const finishConnectionDrag = (e) => {
 
         currentProject = previousState; // Restore project state
         updateUndoButtons();
-        saveProjects(); // Persist the undone state
+        if (currentProject) saveProjectToSupabase(currentProject); // Persist the undone state
 
         // Refresh UI
         renderNodes();
@@ -2192,10 +2574,18 @@ const finishConnectionDrag = (e) => {
                 const node = currentProject.videos.find(v => v.id === selectedNodeId);
                 const button = node ? node.buttons.find(b => b.id === selectedButtonId) : null;
                 if (!button) {
-                    closeButtonEditor();
+                    try {
+                        closeButtonEditor();
+                    } catch (e) {
+                        console.log('Error closing button editor, likely not defined yet:', e.message);
+                    }
                 }
             } else {
-                closeButtonEditor();
+                try {
+                    closeButtonEditor();
+                } catch (e) {
+                    console.log('Error closing button editor, likely not defined yet:', e.message);
+                }
             }
         }
         // Ensure selection states for nodes and buttons are consistent
@@ -2276,10 +2666,60 @@ const finishConnectionDrag = (e) => {
             }
         }
 
-        saveProjects();
+        if (currentProject) saveProjectToSupabase(currentProject);
         renderButtons();
         selectButton(selectedButtonId);
     }
+
+    // Utility function to check if a string is a valid UUID
+    const isValidUUID = (uuid) => {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        return uuidRegex.test(uuid);
+    };
+
+    // Utility function to generate a UUID
+    const generateUUID = () => {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    };
+
+    const addSaveButton = () => {
+        console.log('Adding Save button to UI');
+        let saveButton = document.getElementById('save-project-btn');
+        if (saveButton) {
+            saveButton.remove(); // Remove existing to reposition
+        }
+        saveButton = document.createElement('button');
+        saveButton.id = 'save-project-btn';
+        saveButton.className = 'editor-button';
+        saveButton.innerText = 'Save Project';
+        saveButton.onclick = async (e) => {
+            console.log('Save button clicked');
+            try {
+                await saveCurrentProject();
+            } catch (error) {
+                console.error('Failed to save project:', error);
+            }
+        };
+        const previewButton = document.getElementById('preview-project-btn');
+        const exportButton = document.getElementById('export-project-btn');
+        if (previewButton && exportButton && previewButton.parentNode) {
+            previewButton.parentNode.insertBefore(saveButton, exportButton);
+            console.log('Save button inserted between Preview and Export');
+        } else {
+            console.warn('Could not find Preview or Export buttons to position Save button');
+            const editorToolbar = document.querySelector('.editor-toolbar');
+            if (editorToolbar) {
+                editorToolbar.appendChild(saveButton);
+                console.log('Save button appended to editor toolbar as fallback');
+            } else {
+                console.error('Could not find editor toolbar to append Save button');
+            }
+        }
+    };
+    addSaveButton();
 
     init();
 });
