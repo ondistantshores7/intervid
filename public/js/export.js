@@ -4,10 +4,31 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!exportBtn) return;
 
   exportBtn.addEventListener('click', async () => {
-    const proj = window.currentProject;
+    let proj = window.currentProject;
     if (!proj) {
-      alert('No project loaded');
-      return;
+      // Check if we're in editor view but currentProject isn't set
+      const editorView = document.querySelector('#editor.active');
+      if (editorView) {
+        console.log('In editor view but no currentProject set, attempting to fetch current project data');
+        // Retry mechanism to wait for currentProject to be set
+        let retries = 0;
+        const maxRetries = 5;
+        const retryInterval = 500; // milliseconds
+        while (retries < maxRetries && !window.currentProject) {
+          await new Promise(resolve => setTimeout(resolve, retryInterval));
+          proj = window.currentProject;
+          retries++;
+          console.log(`Retry ${retries}/${maxRetries} to access currentProject`);
+        }
+        if (!proj) {
+          console.error('currentProject is not accessible or not set in main_v2.js after retries');
+          alert('No project is currently loaded. Please ensure you have opened a project to edit before exporting. If the issue persists, try refreshing the page or re-opening the project.');
+          return;
+        }
+      } else {
+        alert('No project loaded. Please navigate to a project first by clicking Edit on a project from the dashboard.');
+        return;
+      }
     }
 
     const projectData = {

@@ -179,6 +179,7 @@ const spreadOutBtn = getElement('spread-out-btn');
 
     let projects = [];
     var currentProject = null; // use var so it's attached to window for export.js
+    window.currentProject = currentProject; // Explicitly ensure it's on window object for accessibility across scripts
     let currentNode = null;
     let selectedNodeId = null;
     let selectedButtonId = null;
@@ -1033,6 +1034,8 @@ const spreadOutBtn = getElement('spread-out-btn');
                     const project = projects.find(p => p.id === projectId);
                     if (project) {
                         currentProject = JSON.parse(JSON.stringify(project)); // Deep copy to avoid reference issues
+                        window.currentProject = currentProject; // Ensure it's on window object
+                        console.log('currentProject set on window object:', window.currentProject);
                         console.log('Editing project:', project.name, 'ID:', project.id);
                         updateProjectDisplay(currentProject);
                     } else {
@@ -2544,6 +2547,8 @@ const finishConnectionDrag = (e) => {
         if (!previousState) return;
 
         currentProject = previousState; // Restore project state
+        window.currentProject = currentProject; // Ensure it's on window object
+        console.log('currentProject set on window object:', window.currentProject);
         updateUndoButtons();
         if (currentProject) saveProjectToSupabase(currentProject); // Persist the undone state
 
