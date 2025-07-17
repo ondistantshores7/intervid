@@ -89,7 +89,7 @@ async function initPlayer(container, projectId) {
         const playerHTML = `
             <div id="video-container" style="position:relative; width:100%; height:100%;">
                 <video id="preview-video" style="width:100%; height:100%; object-fit:contain;"></video>
-                <div class="preview-buttons-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%;"></div>
+                <div class="preview-buttons-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:10; pointer-events:none;"></div>
             </div>
         `;
         
@@ -261,6 +261,71 @@ class IVSPlayer {
                 transition: 'transform 0.2s ease'
             });
             this.overlay.appendChild(this.playBtn);
+
+            // Custom fullscreen toggle button
+            this.fullscreenBtn = document.createElement('button');
+            this.fullscreenBtn.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="#fff"><path d="M3 3h8v2H5v6H3V3zm10 0h8v8h-2V5h-6V3zM3 13h2v6h6v2H3v-8zm16 0h2v8h-8v-2h6v-6z"/></svg>';
+            Object.assign(this.fullscreenBtn.style, {
+                position: 'absolute',
+                bottom: '32px',
+                right: '60px',
+                zIndex: '3',
+                background: 'rgba(0,0,0,0.6)',
+                border: 'none',
+                width: '28px',
+                height: '28px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                padding: '0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: '0',            // hidden by default
+                pointerEvents: 'none',   // ignore clicks while hidden
+                transition: 'opacity 0.25s ease'
+            });
+            this.overlay.appendChild(this.fullscreenBtn);
+            // Show logic vars
+            let fsHideTimer;
+            const showFullscreenBtn = () => {
+                this.fullscreenBtn.style.opacity = '1';
+                this.fullscreenBtn.style.pointerEvents = 'auto';
+                clearTimeout(fsHideTimer);
+                fsHideTimer = setTimeout(() => {
+                    this.fullscreenBtn.style.opacity = '0';
+                    this.fullscreenBtn.style.pointerEvents = 'none';
+                }, 2000);
+            };
+            // Reveal button on user interaction
+            this.overlay.addEventListener('mousemove', showFullscreenBtn);
+            this.overlay.addEventListener('touchstart', showFullscreenBtn, { passive: true });
+            this.overlay.addEventListener('mouseleave', () => {
+                this.fullscreenBtn.style.opacity = '0';
+                this.fullscreenBtn.style.pointerEvents = 'none';
+            });
+            // Also show when entering fullscreen (controls often fade in at entry)
+            document.addEventListener('fullscreenchange', () => {
+                if (document.fullscreenElement === this.overlay) {
+                    showFullscreenBtn();
+                }
+            });
+
+            this.fullscreenBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                try {
+                    if (document.fullscreenElement) {
+                        document.exitFullscreen();
+                    } else {
+                        this.overlay.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+                    }
+                } catch (_) { /* ignored */ }
+            });
+
+            // Disable native fullscreen control on video to avoid confusion (not supported in all browsers)
+            try {
+                this.videoEl.setAttribute('controlsList', 'nofullscreen');
+            } catch (_) {}
+
             this.playBtn.addEventListener('click', () => {
                 this.videoEl.play().catch(() => {});
             });
@@ -314,6 +379,55 @@ class IVSPlayer {
         this.videoEndedHandler = this.handleVideoEnd.bind(this);
 
         this.setupHighlighter();
+
+        // ----- Fullscreen overlay support -----
+        // Use double-click on the video to toggle fullscreen on the overlay container instead of the bare <video> tag
+        if (this.videoEl) {
+            this.videoEl.addEventListener('dblclick', () => {
+                try {
+                    if (document.fullscreenElement) {
+                        document.exitFullscreen();
+                    } else {
+                        this.overlay.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+                    }
+                } catch (_) { /* ignored */ }
+            });
+        }
+        // Inject CSS for fullscreen overlay once
+        if (!document.getElementById('ivs-fullscreen-overlay-style')) {
+            const styleEl = document.createElement('style');
+            styleEl.id = 'ivs-fullscreen-overlay-style';
+            styleEl.textContent = `
+                .ivs-fullscreen-overlay {
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 100vw !important;
+                    height: 100vh !important;
+                    z-index: 2147483647 !important;
+                    pointer-events: auto;
+                }
+            `;
+            document.head.appendChild(styleEl);
+        }
+
+        const fullscreenChangeHandler = () => {
+            const fsEl = document.fullscreenElement;
+            if (fsEl && fsEl === this.overlay) {
+                // Overlay is now in fullscreen – ensure correct class
+                this.overlay.classList.add('ivs-fullscreen-overlay');
+                // Recalculate responsive button fonts after 2 frames for accurate sizes
+                requestAnimationFrame(() => requestAnimationFrame(() => this.adjustAllButtonFonts()));
+            } else {
+                // Exited fullscreen or fullscreen on a different element
+                this.overlay.classList.remove('ivs-fullscreen-overlay');
+                requestAnimationFrame(() => requestAnimationFrame(() => this.adjustAllButtonFonts()));
+            }
+        };
+        document.addEventListener('fullscreenchange', fullscreenChangeHandler);
+        // Also support WebKit (Safari, iOS)
+        document.addEventListener('webkitfullscreenchange', fullscreenChangeHandler);
+
         this.loadVideo(startNodeId, false);
 
         // Caption watchdog disabled due to conflicts
@@ -833,8 +947,8 @@ class IVSPlayer {
         // Apply base styles
         const buttonStyle = {
             position: 'absolute',
-            left: buttonData.position?.x || '50%',
-            top: buttonData.position?.y || '50%',
+            left: (buttonData.position?.x ?? '50%'),
+            top: (buttonData.position?.y ?? '50%'),
             pointerEvents: 'auto',
             boxSizing: 'border-box',
             ...buttonData.style // User-defined styles
@@ -845,7 +959,7 @@ class IVSPlayer {
             buttonEl.innerHTML = buttonData.embedCode || '';
             // For embeds, we don't want flex centering, we want the content to fill the space.
         } else {
-            buttonEl.textContent = buttonData.text;
+            buttonEl.innerHTML = (buttonData.text || '').replace(/\n/g, '<br>');
             // For text buttons, apply flex for centering
             Object.assign(buttonStyle, {
                 display: 'flex',
@@ -866,7 +980,7 @@ class IVSPlayer {
                 // Use viewport width scaling: 1vw roughly equals 1% of viewport width
                 // Coefficient 2vw provides nice scaling; tweak based on original size
                 buttonEl.style.fontSize = `clamp(${minPx}px, 2vw, ${px}px)`;
-                buttonEl.dataset.origFontSize = `${px}`;
+                buttonEl.dataset.origFontPx = `${px}`;
             } else {
                 buttonEl.style.fontSize = buttonStyle.fontSize;
             }
@@ -905,11 +1019,7 @@ class IVSPlayer {
         }
         
         this.buttonsContainer.appendChild(buttonEl);
-        // Store original font px and adjust for current viewport
-        if (!buttonEl.dataset.origFontPx) {
-            const m = /([0-9.]+)px/.exec(buttonEl.style.fontSize || '');
-            if (m) buttonEl.dataset.origFontPx = m[1];
-        }
+        // Orig font px already stored above
         this.adjustFontSize(buttonEl);
 
         return buttonEl;
@@ -976,7 +1086,7 @@ class IVSPlayer {
     _langFromLabels(langStr = '', labelStr = '') {
         const lcLang = langStr.toLowerCase();
         const lcLabel = labelStr.toLowerCase();
-        if (lcLang.startsWith('es') || lcLabel.includes('español') || lcLabel.includes('spanish') || lcLabel.includes('espanol')) return 'es';
+        if (lcLang.startsWith('es') || lcLabel.includes('español') || lcLabel.includes('espanol') || lcLabel.includes('spanish')) return 'es';
         if (lcLang.startsWith('en') || lcLabel.includes('english') || lcLabel.includes('inglés') || lcLabel.includes('ingles')) return 'en';
         return 'off';
     }
@@ -1186,11 +1296,11 @@ class IVSPlayer {
                 }
                 break;
             case 'node':
-                if (endAction.targetNode) {
-                    console.log(`End action: Play node ${endAction.targetNode}`);
-                    this.loadVideo(endAction.targetNode);
+                if (endAction.target) {
+                    console.log(`End action: Play node ${endAction.target}`);
+                    this.loadVideo(endAction.target);
                 } else {
-                    console.warn('End action type is "node", but no targetNode specified.');
+                    console.warn('End action type is "node", but no target specified.');
                 }
                 break;
             case 'url':
@@ -1240,6 +1350,7 @@ class IVSPlayer {
         // Original font size in px
         const origPx = parseFloat(btn.dataset.origFontPx || window.getComputedStyle(btn).fontSize);
         if (!origPx) return;
+        if (!btn.dataset.origFontPx) btn.dataset.origFontPx = origPx;
         // Capture original button width once
         if (!btn.dataset.origButtonW) {
             btn.dataset.origButtonW = btn.offsetWidth || 1;
@@ -1250,9 +1361,18 @@ class IVSPlayer {
         const viewportWidth = window.innerWidth;
         const baseViewport = 1440; // Reference desktop width
         const viewportScale = viewportWidth / baseViewport;
-        const scale = (currentW / origW) * Math.min(1, viewportScale);
-        const minRatio = 0.6; // Adjusted minimum to ensure visibility on mobile
-        const newSize = Math.max(origPx * minRatio, origPx * scale);
+        const widthRatio = currentW / origW;
+        const minRatio = 0.6; // minimum proportion of original size
+        const scale = Math.max(minRatio, Math.min(1, widthRatio, viewportScale)); // never upscale above original
+        let finalScale = scale;
+        if (document.fullscreenElement === this.overlay) {
+            // Slight up-scale in fullscreen to stay readable
+            finalScale *= 0.92; // 8% smaller than original
+        } else {
+            // Down-scale in embedded view to fit buttons
+            finalScale *= 0.8; // 20% smaller than original
+        }
+        const newSize = origPx * finalScale;
         btn.style.fontSize = `${newSize}px`;
     }
 
@@ -1272,6 +1392,8 @@ class IVSPlayer {
             }
         }
         if (this.buttonsContainer) {
+            // Always ensure correct stacking and interaction behaviour
+            this.buttonsContainer.style.position = 'absolute';
             this.buttonsContainer.removeEventListener('click', this.buttonClickHandler);
             this.buttonsContainer.innerHTML = '';
         }

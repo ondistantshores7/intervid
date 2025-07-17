@@ -111,6 +111,7 @@ const getSessionFromCookie = () => null;
     const buttonEditorPanel = getElement('button-editor-panel');
     const buttonTextInput = getElement('button-text-input');
     const buttonTimeInput = getElement('button-time-input');
+    const buttonLineSpacingInput = getElement('button-line-spacing-input');
     const buttonLinkType = getElement('button-link-type');
     const nodeLinkContainer = getElement('node-link-container');
     const urlLinkContainer = getElement('url-link-container');
@@ -189,6 +190,15 @@ const spreadOutBtn = getElement('spread-out-btn');
 
     let undoStack = [];
     const MAX_UNDO_STEPS = 20;
+
+    // Preserve view state across tab switches
+    let currentView = localStorage.getItem('currentView') || 'login';
+
+    function setCurrentView(view) {
+        currentView = view;
+        localStorage.setItem('currentView', view);
+        console.log('Current view saved:', view);
+    }
 
     // Function to save the current project
     const saveCurrentProject = async () => {
@@ -344,8 +354,8 @@ const spreadOutBtn = getElement('spread-out-btn');
                             card.dataset.id = project.id;
                             card.innerHTML = `
                                 <h3>${project.name}</h3>
-                                <button class="edit-btn">Edit</button>
-                                <button class="delete-btn danger">Delete</button>
+                                <p>${project.videos.length} videos</p>
+                                <p class="project-date">Edited: ${new Date(project.lastEdited).toLocaleDateString()}</p>
                             `;
                             const editBtn = card.querySelector('.edit-btn');
                             editBtn.onclick = () => navigateTo('editor', project.id);
@@ -394,7 +404,7 @@ const spreadOutBtn = getElement('spread-out-btn');
         } else if (username === 'guest') {
             username = 'musicgawronski@gmail.com';
         }
-
+        console.log('Attempting login with email:', username);
         try {
             const { data, error } = await supabase.auth.signInWithPassword({
                 email: username,
@@ -430,7 +440,14 @@ const spreadOutBtn = getElement('spread-out-btn');
             if (loginScreen) loginScreen.classList.remove('active');
             navigateTo('dashboard');
             userStatusContainer.style.display = 'flex';
-            userEmailSpan.textContent = user.email || '';
+            // Display username instead of email
+            let displayName = user.email || '';
+            if (displayName === 'musicgawronski@gmail.com') {
+                displayName = 'guest';
+            } else if (displayName === 'ondistantshores@optonline.net') {
+                displayName = 'ondistantshores';
+            }
+            userEmailSpan.textContent = displayName;
         } else {
             // ---- Logged-out: show full-screen login ----
             navigateTo('login');
@@ -612,6 +629,7 @@ const spreadOutBtn = getElement('spread-out-btn');
             // --- Timeline Bar Logic (with stacking) ---
             if (nodeVideoPreview.duration && nodeVideoPreview.duration > 0) {
                 const buttonStartTime = button.time || 0;
+    
                 let buttonDuration = getButtonEffectiveDuration(button, nodeVideoPreview.duration);
                 if (buttonDuration <= 0) {
                     buttonDuration = 0.1; // Ensure positive duration
@@ -686,7 +704,18 @@ const spreadOutBtn = getElement('spread-out-btn');
 
             // Font size and line-height: use raw values so Edit Node matches preview/export
             if (style.fontSize) {
-                buttonPreview.style.fontSize = style.fontSize;
+                // Reduce preview font to align with in-player scaling (~80%)
+                const m = /^([0-9.]+)px$/.exec(style.fontSize.trim());
+                if (m) {
+                    const orig = parseFloat(m[1]);
+                    const previewPx = (orig * 0.8).toFixed(2);
+                    buttonPreview.style.fontSize = `${previewPx}px`;
+                } else {
+                    buttonPreview.style.fontSize = style.fontSize;
+                }
+            }
+            if (style.fontFamily) {
+                buttonPreview.style.fontFamily = style.fontFamily;
             }
             if (style.lineHeight) {
                 buttonPreview.style.lineHeight = style.lineHeight;
@@ -701,19 +730,27 @@ const spreadOutBtn = getElement('spread-out-btn');
                     buttonPreview.style.padding = paddingValues.map(p => (p * scaleFactor) + 'px').join(' ');
                 }
             }
-             // Scale width and height ONLY if they are in 'px'
-            if (style.width && style.width.endsWith('px')) {
-                const widthPx = parseFloat(style.width);
-                if (!isNaN(widthPx)) buttonPreview.style.width = (widthPx * scaleFactor) + 'px';
-            } else {
-                buttonPreview.style.width = style.width; // Keep %, etc. as is
-            }
-            if (style.height && style.height.endsWith('px')) {
-                const heightPx = parseFloat(style.height);
-                if (!isNaN(heightPx)) buttonPreview.style.height = (heightPx * scaleFactor) + 'px';
-            } else {
-                buttonPreview.style.height = style.height; // Keep %, etc. as is
-            }
+             // Explicitly set width, height, and position in pixels to prevent resizing from content changes
+            const containerRect = nodeVideoButtonsOverlay.getBoundingClientRect();
+            // Use the original stored data from currentProject to ensure consistency, not potentially modified style properties
+            const buttonData = node.buttons.find(b => b.id === button.id) || button;
+            const widthPct = parseFloat(buttonData.style.width) || 15;
+            const heightPct = parseFloat(buttonData.style.height) || 10;
+            const xPct = parseFloat(buttonData.position.x) || 40;
+            const yPct = parseFloat(buttonData.position.y) || 80;
+            console.log('renderButtons: Using percentage values for button', button.id, 'widthPct:', widthPct, 'heightPct:', heightPct, 'fontSize:', button.style.fontSize || 'default');
+            const calculatedWidth = (widthPct / 100 * containerRect.width).toFixed(2);
+            const calculatedHeight = (heightPct / 100 * containerRect.height).toFixed(2);
+            console.log('renderButtons: Setting dimensions for button', button.id, 'to width:', calculatedWidth + 'px', 'height:', calculatedHeight + 'px');
+
+            buttonPreview.style.setProperty('width', `${calculatedWidth}px`, 'important');
+            buttonPreview.style.setProperty('height', `${calculatedHeight}px`, 'important');
+            buttonPreview.style.left = `${(xPct / 100 * containerRect.width).toFixed(2)}px`;
+            buttonPreview.style.top = `${(yPct / 100 * containerRect.height).toFixed(2)}px`;
+
+            // Prevent text overflow from resizing the button, but allow multi-line
+            buttonPreview.style.overflow = 'hidden';
+            buttonPreview.style.whiteSpace = 'pre-wrap';
 
             // Set content
             if (button.linkType === 'embed') {
@@ -773,6 +810,16 @@ const spreadOutBtn = getElement('spread-out-btn');
             nodeVideoButtonsOverlay.appendChild(buttonPreview);
             // --- End of buttonPreview logic ---
         });
+        // Log computed style after setting dimensions to check for overrides
+        setTimeout(() => {
+            sortedButtons.forEach(button => {
+                const buttonPreview = nodeVideoButtonsOverlay.querySelector(`.video-overlay-button[data-button-id="${button.id}"]`);
+                if (buttonPreview) {
+                    const computedStyle = getComputedStyle(buttonPreview);
+                    console.log('renderButtons: Computed style after render for button', button.id, 'width:', computedStyle.width, 'height:', computedStyle.height);
+                }
+            });
+        }, 0);
     };
 
     const startButtonDrag = (e) => {
@@ -842,28 +889,26 @@ const spreadOutBtn = getElement('spread-out-btn');
             moveEvent.preventDefault();
             const currentX = (moveEvent.touches ? moveEvent.touches[0].clientX : moveEvent.clientX);
             const currentY = (moveEvent.touches ? moveEvent.touches[0].clientY : moveEvent.clientY);
-            const dx = currentX - startX;
-            const dy = currentY - startY;
             let newWidth = initialWidth;
             let newHeight = initialHeight;
             let newLeft = initialX;
             let newTop = initialY;
             if (handle.classList.contains('br')) {
-                newWidth = initialWidth + dx;
-                newHeight = initialHeight + dy;
+                newWidth = initialWidth + (currentX - startX);
+                newHeight = initialHeight + (currentY - startY);
             } else if (handle.classList.contains('bl')) {
-                newWidth = initialWidth - dx;
-                newHeight = initialHeight + dy;
-                newLeft = initialX + dx;
+                newWidth = initialWidth - (currentX - startX);
+                newHeight = initialHeight + (currentY - startY);
+                newLeft = initialX + (currentX - startX);
             } else if (handle.classList.contains('tr')) {
-                newWidth = initialWidth + dx;
-                newHeight = initialHeight - dy;
-                newTop = initialY + dy;
+                newWidth = initialWidth + (currentX - startX);
+                newHeight = initialHeight - (currentY - startY);
+                newTop = initialY + (currentY - startY);
             } else if (handle.classList.contains('tl')) {
-                newWidth = initialWidth - dx;
-                newHeight = initialHeight - dy;
-                newLeft = initialX + dx;
-                newTop = initialY + dy;
+                newWidth = initialWidth - (currentX - startX);
+                newHeight = initialHeight - (currentY - startY);
+                newLeft = initialX + (currentX - startX);
+                newTop = initialY + (currentY - startY);
             }
             // constrain minimum size
             newWidth = Math.max(20, newWidth);
@@ -872,7 +917,6 @@ const spreadOutBtn = getElement('spread-out-btn');
             buttonEl.style.height = `${newHeight}px`;
             buttonEl.style.left = `${newLeft}px`;
             buttonEl.style.top = `${newTop}px`;
-            button.style.borderRadius = `${buttonBorderRadiusInput.value}px`;
         };
 
         const onEnd = () => {
@@ -972,8 +1016,10 @@ const spreadOutBtn = getElement('spread-out-btn');
     };
 
     // ---- Navigation ----
-    const navigateTo = (view, projectId = null) => {
-        console.log('Navigating to view:', view);
+    const navigateTo = (viewId, projectId = null) => {
+        console.log('Navigating to view:', viewId);
+        // Save the current view
+        setCurrentView(viewId);
         document.querySelectorAll('.view-section').forEach(s => {
             console.log('Removing active from:', s.id, 'with class:', s.className);
             s.classList.remove('active');
@@ -981,7 +1027,7 @@ const spreadOutBtn = getElement('spread-out-btn');
             s.style.visibility = 'hidden';
             s.style.opacity = '0';
         });
-        if (view === 'login') {
+        if (viewId === 'login') {
             const loginView = getElement('login-screen');
             if(loginView) {
                 console.log('Found login view, adding active class');
@@ -992,7 +1038,7 @@ const spreadOutBtn = getElement('spread-out-btn');
             } else {
                 console.error('Login view not found');
             }
-        } else if (view === 'dashboard') {
+        } else if (viewId === 'dashboard') {
             if(dashboardView) {
                 console.log('Found dashboard view, adding active class, ID:', dashboardView.id, 'Class:', dashboardView.className);
                 dashboardView.classList.add('active');
@@ -1021,7 +1067,7 @@ const spreadOutBtn = getElement('spread-out-btn');
             } catch (e) {
                 console.log('Error closing editor panels, likely not defined yet:', e.message);
             }
-        } else if (view === 'editor') {
+        } else if (viewId === 'editor') {
             const editorView = getElement('editor');
             if(editorView) {
                 console.log('Found editor view, adding active class');
@@ -1034,7 +1080,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                     const project = projects.find(p => p.id === projectId);
                     if (project) {
                         currentProject = JSON.parse(JSON.stringify(project)); // Deep copy to avoid reference issues
-                        window.currentProject = currentProject; // Ensure it's on window object
+                        window.currentProject = currentProject; // Ensure it's on window object for accessibility across scripts
                         console.log('currentProject set on window object:', window.currentProject);
                         console.log('Editing project:', project.name, 'ID:', project.id);
                         updateProjectDisplay(currentProject);
@@ -1051,7 +1097,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                 console.error('Editor view not found');
             }
         } else {
-            console.warn('Unknown view:', view, 'Navigating to dashboard.');
+            console.warn('Unknown view:', viewId, 'Navigating to dashboard.');
             navigateTo('dashboard');
         }
     };
@@ -1312,7 +1358,7 @@ const spreadOutBtn = getElement('spread-out-btn');
             const node = currentProject.videos.find(v => v.id === selectedNodeId);
             if (!node) return;
             pushToUndoStack(); // Save state before adding new button
-            const newButton = { id: `btn-${Date.now()}`, text: 'New Button', time: nodeVideoPreview.currentTime, duration: 5, linkType: 'node', target: '', embedCode: '', position: { x: '40%', y: '80%' }, style: { width: '15%', height: '10%', backgroundColor: '#007bff', color: '#ffffff', fontSize: '16px', padding: '10px 20px', border: 'none', borderRadius: '5px' }, animation: { type:'none', direction:'left', duration:'1' }, shadow: {
+            const newButton = { id: `btn-${Date.now()}`, text: 'New Button', time: nodeVideoPreview.currentTime, duration: 5, linkType: 'node', target: '', embedCode: '', position: { x: '40%', y: '80%' }, style: { width: '15%', height: '10%', backgroundColor: '#007bff', color: '#ffffff', fontSize: '16px', padding: '10px 20px', border: 'none', borderRadius: '5px', lineHeight: 1.5 }, animation: { type:'none', direction:'left', duration:'1' }, shadow: {
                         enabled: false,
                         color: '#000000',
                         opacity: 0.5,
@@ -1435,7 +1481,8 @@ const spreadOutBtn = getElement('spread-out-btn');
             buttonShadowHOffset,
             buttonShadowVOffset,
             buttonShadowBlur,
-            buttonShadowSpread
+            buttonShadowSpread,
+            buttonLineSpacingInput
         ];
 
         styleInputs.forEach(el => {
@@ -1496,6 +1543,17 @@ const spreadOutBtn = getElement('spread-out-btn');
             });
         }
 
+        if (buttonLineSpacingInput) {
+            buttonLineSpacingInput.addEventListener('input', () => {
+                if (!selectedButtonId) return;
+                const lineSpacing = buttonLineSpacingInput.value;
+                const buttonElement = document.querySelector(`.video-overlay-button[data-button-id="${selectedButtonId}"]`);
+                if (buttonElement) {
+                    buttonElement.style.lineHeight = lineSpacing;
+                }
+            });
+        }
+
         if (buttonLinkType) {
             buttonLinkType.addEventListener('change', function () {
                 const type = this.value;
@@ -1543,19 +1601,22 @@ const spreadOutBtn = getElement('spread-out-btn');
                 if (!selectedNodeId || !selectedButtonId || !currentProject) return;
                 const node = currentProject.videos.find(v => v.id === selectedNodeId);
                 if (!node) return;
-                pushToUndoStack();
+                pushToUndoStack(); // Save state before changing button at end status
 
                 if (buttonAtEndCheckbox.checked) {
                     const vidDur = nodeVideoPreview.duration || 0;
-                    button.time = vidDur > 0 ? Math.max(0, vidDur - 0.1) : 0;
-                    buttonTimeInput.disabled = true;
+                    const button = node.buttons.find(b => b.id === selectedButtonId);
+                    if (button) {
+                        button.time = vidDur > 0 ? Math.max(0, vidDur - 0.1) : 0;
+                        buttonTimeInput.disabled = true;
+                    }
                 } else {
                     buttonTimeInput.disabled = false;
                 }
-                buttonTimeInput.value = button.time || 0;
+                buttonTimeInput.value = node.buttons.find(b => b.id === selectedButtonId).time || 0;
                 if (currentProject) saveProjectToSupabase(currentProject);
                 renderButtons();
-                selectButton(button.id);
+                selectButton(selectedButtonId);
             });
         }
 
@@ -1695,12 +1756,11 @@ const spreadOutBtn = getElement('spread-out-btn');
         const paddingInputEl = document.getElementById('button-padding-input');
 
         const needsFullRender = e && (
-            e.target === buttonPosXInput ||
-            e.target === buttonPosYInput ||
-            e.target === buttonWidthInput ||
-            e.target === buttonHeightInput ||
-            e.target === fontSizeInputEl ||
-            e.target === paddingInputEl
+            e.target.id === 'button-x-input' ||
+            e.target.id === 'button-y-input' ||
+            e.target.id === 'button-width-input' ||
+            e.target.id === 'button-height-input' ||
+            e.target.id === 'button-padding-input'
         );
 
         // Always update basic properties
@@ -1756,7 +1816,7 @@ const spreadOutBtn = getElement('spread-out-btn');
         if (!button.shadow) button.shadow = {}; // Ensure shadow object exists
         button.shadow.enabled = buttonShadowEnable ? buttonShadowEnable.checked : false;
         button.shadow.color = buttonShadowColor ? buttonShadowColor.value : '#000000';
-        button.shadow.opacity = buttonShadowOpacity ? parseFloat(buttonShadowOpacity.value) : 0.5;
+        button.shadow.opacity = buttonShadowOpacity ? parseFloat(buttonShadowOpacity.value) || 0.5 : 0.5;
         button.shadow.hOffset = buttonShadowHOffset ? parseInt(buttonShadowHOffset.value) || 2 : 2;
         button.shadow.vOffset = buttonShadowVOffset ? parseInt(buttonShadowVOffset.value) || 2 : 2;
         button.shadow.blur = buttonShadowBlur ? parseInt(buttonShadowBlur.value) || 4 : 4;
@@ -1768,6 +1828,7 @@ const spreadOutBtn = getElement('spread-out-btn');
         const buttonElementForShadow = document.querySelector(`.video-overlay-button[data-button-id="${selectedButtonId}"]`);
         if (buttonElementForShadow) {
             if (button.shadow.enabled) {
+                const scaleFactor = nodeVideoPreview.offsetWidth / (nodeVideoPreview.videoWidth || nodeVideoPreview.offsetWidth);
                 const rgbaColor = hexToRgba(button.shadow.color, button.shadow.opacity);
                 const hOffset = (parseFloat(button.shadow.hOffset) || 0) * scaleFactor;
                 const vOffset = (parseFloat(button.shadow.vOffset) || 0) * scaleFactor;
@@ -1787,10 +1848,10 @@ const spreadOutBtn = getElement('spread-out-btn');
             const width = button.style.width ? parseFloat(button.style.width) : 20;
             const height = button.style.height ? parseFloat(button.style.height) : 10;
             
-            button.position.x = `${(x / 100 * containerRect.width).toFixed(2)}%`;
-            button.position.y = `${(y / 100 * containerRect.height).toFixed(2)}%`;
-            button.style.width = `${(width / 100 * containerRect.width).toFixed(2)}%`;
-            button.style.height = `${(height / 100 * containerRect.height).toFixed(2)}%`;
+            button.position.x = `${Math.max(0, Math.min(x, 90))}%`; // Ensure within bounds
+            button.position.y = `${Math.max(0, Math.min(y, 90))}%`; // Ensure within bounds
+            button.style.width = `${Math.max(10, Math.min(width, 50))}%`; // Constrain width
+            button.style.height = `${Math.max(5, Math.min(height, 30))}%`; // Constrain height
         }
 
         // Update style properties without affecting dimensions
@@ -1815,6 +1876,7 @@ const spreadOutBtn = getElement('spread-out-btn');
         if (!e || e.target === document.getElementById('button-font-size-input')) {
             const fontSize = parseInt(document.getElementById('button-font-size-input').value) || 16;
             style.fontSize = `${Math.max(8, Math.min(fontSize, 300))}px`;
+            console.log('updateButtonFromEditor: Setting font size to', style.fontSize);
         }
         if (!e || e.target === document.getElementById('button-padding-input')) {
             const padding = parseInt(document.getElementById('button-padding-input').value) || 10;
@@ -1827,6 +1889,9 @@ const spreadOutBtn = getElement('spread-out-btn');
         if (!e || e.target === document.getElementById('button-border-input')) {
             style.border = document.getElementById('button-border-input').value || 'none';
         }
+        if (!e || e.target === buttonLineSpacingInput) {
+            style.lineHeight = buttonLineSpacingInput.value;
+        }
 
         // Ensure display properties are set for proper rendering
         style.display = 'flex';
@@ -1837,21 +1902,9 @@ const spreadOutBtn = getElement('spread-out-btn');
         // Persist changes before potentially re-rendering
         if (currentProject) saveProjectToSupabase(currentProject);
 
-        // If a full redraw is needed (fontSize, padding, position, etc.), do it now and return early
-        if (needsFullRender) {
-            renderButtons();
-            return; // Avoid direct style assignment to prevent double-scaling
-        }
-
-        // Otherwise, apply style changes directly for snappier live preview.
-        const buttonElement = document.querySelector(`.video-overlay-button[data-button-id="${selectedButtonId}"]`);
-        if (!needsFullRender && buttonElement) {
-            Object.assign(buttonElement.style, style);
-            // Explicitly set properties that sometimes don't update via Object.assign due to type casting
-            if (buttonOpacitySlider) buttonElement.style.opacity = buttonOpacitySlider.value;
-            const ffInput = document.getElementById('button-font-family-input');
-            if (ffInput) buttonElement.style.fontFamily = ffInput.value;
-        }
+        // Always re-render the buttons to ensure all styles are applied correctly from the data model.
+        // This prevents conflicts between direct DOM manipulation and the main rendering function.
+        renderButtons();
 
         // Always re-render if a full redraw is needed (e.g., fontSize / padding changes)
         if (needsFullRender) {
@@ -1888,13 +1941,10 @@ const spreadOutBtn = getElement('spread-out-btn');
         if (buttonTargetNode && currentProject && currentProject.videos && selectedNodeId) {
             buttonTargetNode.innerHTML = ''; // Clear existing options
             currentProject.videos.forEach(videoNode => {
-                // A button is part of selectedNodeId. It can link to any *other* node.
-                if (videoNode.id !== selectedNodeId) { 
-                    const option = document.createElement('option');
-                    option.value = videoNode.id;
-                    option.textContent = videoNode.name || `Node (${videoNode.id.substring(0,6)}...)`; // Fallback with shortened ID
-                    buttonTargetNode.appendChild(option);
-                }
+                const option = document.createElement('option');
+                option.value = videoNode.id;
+                option.textContent = videoNode.name || `Node (${videoNode.id.substring(0,6)}...)`; // Fallback with shortened ID
+                buttonTargetNode.appendChild(option);
             });
         }
 
@@ -1937,6 +1987,7 @@ const spreadOutBtn = getElement('spread-out-btn');
         if (buttonCornerRadiusSlider) buttonCornerRadiusSlider.value = currentBorderRadius;
         if (buttonCornerRadiusValue) buttonCornerRadiusValue.textContent = `${currentBorderRadius}px`;
         document.getElementById('button-border-input').value = button.style.border || 'none';
+        buttonLineSpacingInput.value = button.style.lineHeight || 1.5;
         
         // Update animation inputs
         animationType.value = button.animation.type || 'none';
@@ -2169,7 +2220,7 @@ const finishConnectionDrag = (e) => {
             if (sourceNode) {
                 sourceNode.endAction = {
                     type: 'node',
-                    targetNode: dstId,
+                    target: dstId,
                     targetUrl: '' // Clear targetUrl when linking to another node
                 };
 
@@ -2326,11 +2377,30 @@ const finishConnectionDrag = (e) => {
         // Listen for Supabase auth events to handle login/logout
         supabase.auth.onAuthStateChange((event, session) => {
             console.log(`Auth event: ${event}`);
-            updateAuthUI(session);
             if (event === 'SIGNED_IN') {
-                navigateTo('dashboard');
-            } else if (event === 'SIGNED_OUT') {
-                navigateTo('login');
+                console.log('Auth event: SIGNED_IN');
+                // Only navigate to dashboard if not already in editor or no saved state
+                const savedView = localStorage.getItem('currentView');
+                if (savedView === 'editor' && window.currentProject) {
+                    console.log('Preserving editor view despite SIGNED_IN event');
+                    navigateTo('editor');
+                    updateProjectDisplay(window.currentProject);
+                } else if (savedView !== 'editor') {
+                    navigateTo('dashboard');
+                }
+            } else if (event === 'INITIAL_SESSION') {
+                console.log('Auth event: INITIAL_SESSION');
+                // Similar logic for initial session
+                const savedView = localStorage.getItem('currentView');
+                if (savedView === 'editor' && window.currentProject) {
+                    console.log('Restoring editor view on INITIAL_SESSION');
+                    navigateTo('editor');
+                    updateProjectDisplay(window.currentProject);
+                } else if (savedView !== 'editor') {
+                    navigateTo('dashboard');
+                }
+            } else {
+                updateAuthUI(session);
             }
         });
 
@@ -2354,6 +2424,24 @@ const finishConnectionDrag = (e) => {
         }
 
         updateUndoButtons();
+
+        // Listen for visibility changes to preserve state when returning to tab
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                console.log('Tab is visible, restoring view state');
+                // Restore view state from localStorage
+                const savedView = localStorage.getItem('currentView') || 'login';
+                console.log('Restoring view:', savedView);
+                if (savedView === 'editor' && window.currentProject) {
+                    navigateTo('editor');
+                    updateProjectDisplay(window.currentProject);
+                } else if (savedView === 'dashboard') {
+                    navigateTo('dashboard');
+                } else {
+                    navigateTo('login');
+                }
+            }
+        });
     };
 
     const updateProjectDisplay = (project) => {
@@ -2413,7 +2501,7 @@ const finishConnectionDrag = (e) => {
         
         const nodeName = currentProject.videos.find(v => v.id === selectedNodeId)?.name || 'the selected node';
         // Push to stack *before* confirm, but pop if cancelled
-        pushToUndoStack(); 
+        pushToUndoStack(); // Save state before deleting node
         if (!confirm(`Are you sure you want to delete the node "${nodeName}"? This action can be undone.`)) {
             undoStack.pop(); // Remove the state pushed for this aborted action
             updateUndoButtons(); // Reflect that the stack might be empty now
@@ -2620,6 +2708,8 @@ const finishConnectionDrag = (e) => {
         if (!node || !node.buttons) return;
         const selectedBtn = node.buttons.find(b => b.id === selectedButtonId);
         if (!selectedBtn) return;
+        pushToUndoStack(); // Save state before aligning buttons
+
         const windowStart = (selectedBtn.time || 0) - 2.5;
         const windowEnd   = (selectedBtn.time || 0) + 2.5;
         const buttonsInWindow = node.buttons.filter(b => {
@@ -2627,8 +2717,6 @@ const finishConnectionDrag = (e) => {
             return t >= windowStart && t <= windowEnd;
         });
         if (buttonsInWindow.length === 0) return;
-
-        pushToUndoStack();
 
         if (mode === 'horizontal') {
             // Align all buttons to share the same horizontal baseline (y-coordinate)
@@ -2726,5 +2814,118 @@ const finishConnectionDrag = (e) => {
     };
     addSaveButton();
 
+    if (undoMainBtn) {
+        undoMainBtn.addEventListener('click', () => {
+            console.log('Undo button clicked');
+            handleUndo();
+        });
+    }
+    if (undoNodePanelBtn) {
+        undoNodePanelBtn.addEventListener('click', () => {
+            console.log('Undo button in node panel clicked');
+            handleUndo();
+        });
+    }
+
     init();
 });
+
+const renderProjectList = (projectsToRender) => {
+    console.log('Rendering project list:', projectsToRender.length, 'projects');
+    if (!Array.isArray(projectsToRender)) {
+        console.error('Invalid projects data for rendering:', projectsToRender);
+        return;
+    }
+    const container = getElement('project-list');
+    if (!container) {
+        console.error('Project list container not found');
+        return;
+    }
+    container.innerHTML = '';
+    if (projectsToRender.length === 0) {
+        container.innerHTML = '<p class="no-projects">No projects found. Create a new one to get started.</p>';
+        return;
+    }
+    // Sort by lastEdited descending (newest first)
+    projectsToRender.sort((a, b) => (b.lastEdited || 0) - (a.lastEdited || 0));
+    projectsToRender.forEach((project, index) => {
+        let videoCount = 0;
+        if (project.videos && Array.isArray(project.videos)) {
+            videoCount = project.videos.length;
+        } else if (project.project_data && Array.isArray(project.project_data.videos)) {
+            videoCount = project.project_data.videos.length;
+        }
+        // Format the last edited date
+        let formattedDate = 'Never';
+        if (project.lastEdited) {
+            const date = new Date(project.lastEdited);
+            if (!isNaN(date.getTime())) {
+                formattedDate = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+            }
+        }
+        const projectCard = `
+            <div class="project-card" data-id="${project.id || 'new-' + index}" data-index="${index}">
+                <div class="project-card-title-area">
+                    <h3>${project.name || 'Untitled Project'}</h3>
+                    <p class="project-summary">${videoCount} video node${videoCount === 1 ? '' : 's'} | Edited: ${formattedDate}</p>
+                </div>
+                <div class="project-card-actions">
+                    <button class="edit-btn" data-id="${project.id || 'new-' + index}" data-index="${index}">Edit</button>
+                    <button class="delete-btn" data-id="${project.id || 'new-' + index}" data-index="${index}">Delete</button>
+                    <button class="duplicate-btn" data-id="${project.id || 'new-' + index}" data-index="${index}">Duplicate</button>
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', projectCard);
+    });
+    // Attach event listeners to buttons
+    container.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const projectId = e.currentTarget.getAttribute('data-id');
+            console.log('Edit project clicked:', projectId);
+            editProject(projectId);
+        });
+    });
+    container.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const projectId = e.currentTarget.getAttribute('data-id');
+            console.log('Delete project clicked:', projectId);
+            deleteProject(projectId);
+        });
+    });
+    container.querySelectorAll('.duplicate-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const projectId = e.currentTarget.getAttribute('data-id');
+            console.log('Duplicate project clicked:', projectId);
+            duplicateProject(projectId);
+        });
+    });
+};
+
+const saveCurrentProject = async () => {
+    if (!currentProject) {
+        console.log('No project to save.');
+        alert('No project is currently loaded to save.');
+        return false;
+    }
+    console.log('Saving project to Supabase:', currentProject.name);
+    // Update lastEdited timestamp
+    currentProject.lastEdited = Date.now();
+    try {
+        const saved = await saveProjectToSupabase(currentProject);
+        if (saved) {
+            console.log('Project saved, updating project list');
+            // Reload projects to reflect any changes
+            await loadProjectsFromSupabase();
+            return true;
+        } else {
+            console.error('Failed to save project.');
+            alert('Failed to save project. Please check the console for details.');
+            return false;
+        }
+    } catch (error) {
+        console.error('Error saving project:', error);
+        alert('Error saving project: ' + error.message);
+        return false;
+    }
+};
