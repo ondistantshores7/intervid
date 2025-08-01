@@ -37,7 +37,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             const containers = document.querySelectorAll('[data-project]');
             containers.forEach(container => {
-                container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background-color:#000;color:#fff;font-family:sans-serif;">This content cannot be embedded.</div>';
+                container.innerHTML = '<div style="padding:20px;color:red;">This content cannot be embedded.</div>';
             });
         });
         throw new Error('Cross-origin embedding is not permitted.');
@@ -428,8 +428,12 @@ class IVSPlayer {
                 this.videoEl.setAttribute('controlsList', 'nofullscreen');
             } catch (_) {}
 
-            this.playBtn.addEventListener('click', () => {
-                this.videoEl.play().catch(() => {});
+            this.playBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (this.videoEl.paused) {
+                    this.videoEl.play().catch(err => console.error('Play failed:', err));
+                    this.playBtn.style.display = 'none';
+                }
             });
             // Hover animation
             this.playBtn.addEventListener('mouseenter', () => {
