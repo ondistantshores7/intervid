@@ -131,6 +131,10 @@ class IVSPlayer {
     static _posterCache = new Map();
     constructor(overlayElement, projectData, startNodeId) {
         this.overlay = overlayElement;
+        // Guarantee relative positioning so overlay-child buttons anchor correctly (especially in preview modal)
+        if (window.getComputedStyle(this.overlay).position === 'static') {
+            this.overlay.style.position = 'relative';
+        }
         this.project = projectData;
         this.videoEl = this.overlay.querySelector('#preview-video');
         if (this.videoEl) {
@@ -140,7 +144,9 @@ class IVSPlayer {
         this.buttonsContainer = this.overlay.querySelector('.preview-buttons-overlay');
         // Ensure any previously injected style hiding the native overflow menu is removed
         const prevHide = document.getElementById('ivs-hide-native-overflow-style');
+        // Ensure any previously injected style hiding the native overflow menu is removed
         if (prevHide) prevHide.remove();
+
 
         // -------- Caption Switch + Menu UI --------
         // menu (three-dots) button
@@ -165,7 +171,39 @@ class IVSPlayer {
         });
         this.overlay.appendChild(this.menuBtn);
         // Hide custom menu button (use native overflow menu instead)
+        // Ensure three-dot menu is visible
         this.menuBtn.style.display = 'none';
+
+        // Add arrow button for Video Select
+        this.videoSelectArrow = document.createElement('button');
+        this.videoSelectArrow.textContent = '←';
+        this.videoSelectArrow.setAttribute('aria-label', 'Video Select');
+        Object.assign(this.videoSelectArrow.style, {
+            position: 'absolute',
+            bottom: '52px',
+            right: '108px', 
+            zIndex: 31,
+            background: 'rgba(0,0,0,0.6)',
+            color: '#fff',
+            border: 'none',
+            width: '28px',
+            height: '28px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '18px',
+            lineHeight: '24px',
+            padding: '0'
+        });
+        this.overlay.appendChild(this.videoSelectArrow);
+        this.videoSelectArrow.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (this.videoSelectPanel.style.display === 'none') {
+                this.videoSelectPanel.style.display = 'block';
+                this.captionSwitch.style.display = 'none';
+            } else {
+                this.videoSelectPanel.style.display = 'none';
+            }
+        });
 
         // caption switch panel
         this.captionSwitch = document.createElement('div');
@@ -196,18 +234,76 @@ class IVSPlayer {
                 fontSize: '12px'
             });
         });
+
+        // ----- Video Select panel -----
+        this.videoSelectPanel = document.createElement('div');
+        this.videoSelectPanel.className = 'video-select-panel';
+        Object.assign(this.videoSelectPanel.style, {
+            position: 'absolute',
+            bottom: '50px',
+            right: '12px',
+            zIndex: 30,
+            background: 'rgba(0,0,0,0.8)',
+            padding: '6px 8px',
+            borderRadius: '4px',
+            display: 'none'
+        });
+        // Build video buttons dynamically
+        const createJumpBtn =(label,nodeId)=>{
+            const b=document.createElement('button');
+            b.textContent=label;
+            b.dataset.nodeId=nodeId;
+            Object.assign(b.style,{display:'block',width:'100%',margin:'4px 0',background:'#fff',border:'none',padding:'4px 6px',cursor:'pointer',fontSize:'12px'});
+            return b;
+        };
+        if(this.project?.videos?.length){
+            const lessonNode=this.project.videos[0];
+            this.videoSelectPanel.appendChild(createJumpBtn('Lesson Video',lessonNode.id));
+            // Match nodes titled "Question #1" etc
+            ['Question #1','Question #2','Question #3'].forEach(q=>{
+                const n=this.project.videos.find(v=> (v.title||v.name||'').trim().toLowerCase()===q.toLowerCase());
+                if(n) this.videoSelectPanel.appendChild(createJumpBtn(q,n.id));
+            });
+        }
+        
+        this.overlay.appendChild(this.videoSelectPanel);
+
+        this.videoSelectPanel.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-node-id]');
+            if (btn) {
+                const nid = btn.dataset.nodeId;
+                this.videoSelectPanel.style.display = 'none';
+                this.loadVideo(nid);
+            }
+        });
+
         this.overlay.appendChild(this.captionSwitch);
         // poster will be hidden automatically once playback starts
 
         // toggle panel
         this.menuBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.captionSwitch.style.display = this.captionSwitch.style.display === 'none' ? 'block' : 'none';
+            if(this.captionSwitch.style.display==='none' && this.videoSelectPanel.style.display==='none'){
+                this.captionSwitch.style.display='block';
+            }else{
+                this.captionSwitch.style.display='none';
+                this.videoSelectPanel.style.display='none';
+            }
         });
         // hide when clicking outside
         this.overlay.addEventListener('click', (e) => {
-            if (!this.captionSwitch.contains(e.target) && e.target !== this.menuBtn) {
+            const clickedInPanels = this.captionSwitch.contains(e.target) || this.videoSelectPanel.contains(e.target) || e.target === this.menuBtn || e.target === this.videoSelectArrow || (this.canvas && this.canvas.contains(e.target)) || this.isHighlightMode;
+            if (!clickedInPanels) {
+                
+                // hide any open panels
                 this.captionSwitch.style.display = 'none';
+                this.videoSelectPanel.style.display = 'none';
+                // If click not on an overlay button, toggle video playback
+                const hitButton = e.target.closest('.video-overlay-button');
+                if (!hitButton && this.videoEl) {
+                    if (this.videoEl.paused) this.videoEl.play();
+                    else this.videoEl.pause();
+                }
             }
         });
         // handle caption clicks
@@ -286,27 +382,33 @@ class IVSPlayer {
             });
             this.overlay.appendChild(this.fullscreenBtn);
             // Show logic vars
-            let fsHideTimer;
-            const showFullscreenBtn = () => {
+            let ctrlHideTimer;
+            const showOverlayButtons = () => {
                 this.fullscreenBtn.style.opacity = '1';
+                this.videoSelectArrow.style.opacity = '1';
                 this.fullscreenBtn.style.pointerEvents = 'auto';
-                clearTimeout(fsHideTimer);
-                fsHideTimer = setTimeout(() => {
+                this.videoSelectArrow.style.pointerEvents = 'auto';
+                clearTimeout(ctrlHideTimer);
+                ctrlHideTimer = setTimeout(() => {
                     this.fullscreenBtn.style.opacity = '0';
                     this.fullscreenBtn.style.pointerEvents = 'none';
+                    this.videoSelectArrow.style.opacity = '0';
+                    this.videoSelectArrow.style.pointerEvents = 'none';
                 }, 2000);
             };
             // Reveal button on user interaction
-            this.overlay.addEventListener('mousemove', showFullscreenBtn);
-            this.overlay.addEventListener('touchstart', showFullscreenBtn, { passive: true });
+            this.overlay.addEventListener('mousemove', showOverlayButtons);
+            this.overlay.addEventListener('touchstart', showOverlayButtons, { passive: true });
             this.overlay.addEventListener('mouseleave', () => {
                 this.fullscreenBtn.style.opacity = '0';
                 this.fullscreenBtn.style.pointerEvents = 'none';
+                    this.videoSelectArrow.style.opacity = '0';
+                    this.videoSelectArrow.style.pointerEvents = 'none';
             });
             // Also show when entering fullscreen (controls often fade in at entry)
             document.addEventListener('fullscreenchange', () => {
                 if (document.fullscreenElement === this.overlay) {
-                    showFullscreenBtn();
+                    showOverlayButtons();
                 }
             });
 
@@ -437,6 +539,7 @@ class IVSPlayer {
     /* ---------------- Highlighter Setup ---------------- */
     setupHighlighter() {
         const container = this.overlay.querySelector('#video-container');
+        const buttonParent = this.overlay; // ensures consistent anchoring across modes
         if (!container || !this.videoEl) return;
 
         // Create canvas overlay only once
@@ -515,10 +618,12 @@ class IVSPlayer {
         // Create toggle button only once
         if (!this.highlighterBtn) {
             this.highlighterBtn = document.createElement('button');
-            this.highlighterBtn.className = 'highlighter-btn';
+            this.highlighterBtn.className = 'highlighter-btn video-overlay-button';
             this.highlighterBtn.title = 'Highlighter Tool';
             this.highlighterBtn.textContent = '🖍️';
             Object.assign(this.highlighterBtn.style, {
+                 top: 'auto',
+                 left: 'auto',
                 position: 'absolute',
                 bottom: '60px',
                 right: '5px',
@@ -528,7 +633,7 @@ class IVSPlayer {
                 border: 'none',
                 cursor: 'pointer'
             });
-            container.appendChild(this.highlighterBtn);
+            buttonParent.appendChild(this.highlighterBtn);
 
             // Color picker
             this.colorPicker = document.createElement('input');
@@ -542,7 +647,7 @@ class IVSPlayer {
                 display: 'none',
                 zIndex: 6
             });
-            container.appendChild(this.colorPicker);
+            buttonParent.appendChild(this.colorPicker);
 
             // Clear button (appears in highlight mode)
             this.clearHighlightsBtn = document.createElement('button');
@@ -559,7 +664,8 @@ class IVSPlayer {
                 cursor: 'pointer',
                 zIndex: 6
             });
-            this.clearHighlightsBtn.addEventListener('click', ()=>{
+            this.clearHighlightsBtn.addEventListener('click', (e)=>{
+                e.stopPropagation();
                 // Clear drawings
                 this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
                 // Exit highlight mode and restore UI
@@ -568,19 +674,16 @@ class IVSPlayer {
                 this.colorPicker.style.display = 'none';
                 this.clearHighlightsBtn.style.display = 'none';
                 this.highlighterBtn.classList.remove('active');
-                // Attempt to resume playback
-                if(this.videoEl.paused){
-                    this.videoEl.play().catch(()=>{});
-                }
             });
-            container.appendChild(this.clearHighlightsBtn);
+            buttonParent.appendChild(this.clearHighlightsBtn);
 
             this.colorPicker.addEventListener('input', (e)=>{
                 this.currentColor = e.target.value;
                 this.ctx.strokeStyle = this.currentColor;
             });
 
-            const toggleHighlight = () => {
+            const toggleHighlight = (e) => {
+                e.stopPropagation();
                 this.isHighlightMode = !this.isHighlightMode;
                 if(this.isHighlightMode){
                     this.colorPicker.style.display = 'block';
@@ -594,19 +697,19 @@ class IVSPlayer {
                 }
                 this.highlighterBtn.classList.toggle('active', this.isHighlightMode);
                 this.canvas.style.pointerEvents = this.isHighlightMode ? 'auto' : 'none';
-                if(!this.isHighlightMode && this.videoEl.paused){
-                    this.videoEl.play().catch(()=>{});
-                }
+                
             };
             this.highlighterBtn.addEventListener('click', toggleHighlight);
 
             /* ------------ Staff Overlay Button ------------- */
             if (!this.staffBtn) {
                 this.staffBtn = document.createElement('button');
-                this.staffBtn.className = 'staff-btn';
+                this.staffBtn.className = 'staff-btn video-overlay-button';
                 this.staffBtn.title = 'Music Staff Overlay';
                 this.staffBtn.textContent = '🎼';
                 Object.assign(this.staffBtn.style, {
+                     top: 'auto',
+                     left: 'auto',
                     position: 'absolute',
                     bottom: '180px',
                     right: '5px',
@@ -617,7 +720,7 @@ class IVSPlayer {
                     zIndex: 6
                 });
                 this.staffBtn.style.display = 'none';
-                container.appendChild(this.staffBtn);
+                buttonParent.appendChild(this.staffBtn);
 
                 // Create overlay (hidden initially)
                 this.staffOverlay = document.createElement('div');
@@ -675,12 +778,13 @@ class IVSPlayer {
                     this.highlighterBtn.classList.remove('active');
                     closeBtn.style.display = 'none';
                 });
-                container.appendChild(closeBtn);
+                buttonParent.appendChild(closeBtn);
 
-                container.appendChild(this.staffOverlay);
+                buttonParent.appendChild(this.staffOverlay);
 
                 // Toggle overlay on button click
-                this.staffBtn.addEventListener('click', ()=>{
+                this.staffBtn.addEventListener('click', (e)=>{
+                    e.stopPropagation();
                     const showing = this.staffOverlay.style.display === 'flex';
                     if (!showing) {
                         // Show overlay and enable highlight mode
