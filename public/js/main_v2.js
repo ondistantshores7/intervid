@@ -1935,9 +1935,9 @@ const spreadOutBtn = getElement('spread-out-btn');
         buttonTimeInput.value = button.time || 0;
         if (buttonAtEndCheckbox) {
             const dur = nodeVideoPreview.duration || 0;
-            const atEnd = dur > 0 && Math.abs(dur - button.time) < 0.2;
-            buttonAtEndCheckbox.checked = atEnd;
-            buttonTimeInput.disabled = atEnd;
+            const atEnd = dur > 0 && Math.abs(dur - button.time) < 0.5; // Increased tolerance
+            buttonAtEndCheckbox.checked = atEnd && buttonTimeInput.disabled;
+            buttonTimeInput.disabled = atEnd && buttonAtEndCheckbox.checked;
         }
         // Populate button target node dropdown
         if (buttonTargetNode && currentProject && currentProject.videos && selectedNodeId) {
