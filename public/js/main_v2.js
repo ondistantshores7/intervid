@@ -756,6 +756,11 @@ const spreadOutBtn = getElement('spread-out-btn');
             if (button.linkType === 'embed') {
                 buttonPreview.classList.add('embed-container');
                 buttonPreview.innerHTML = button.embedCode || '';
+            } else if (button.containsImage) {
+                const img = document.createElement('img');
+                img.src = button.imageUrl;
+                buttonPreview.appendChild(img);
+                buttonPreview.textContent = button.text;
             } else {
                 buttonPreview.textContent = button.text;
             }
@@ -1366,7 +1371,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                         vOffset: 2, // px
                         blur: 4,    // px
                         spread: 0   // px
-                    } };
+                    }, containsImage: false, imageUrl: '' };
             if (!node.buttons) node.buttons = [];
             node.buttons.push(newButton);
             if (currentProject) saveProjectToSupabase(currentProject);
@@ -1749,6 +1754,8 @@ const spreadOutBtn = getElement('spread-out-btn');
         if (!button.position) button.position = { x: '40%', y: '80%' };
         if (!button.animation) button.animation = { type: 'none', direction: 'left', duration: '1' };
         if (!button.animateOut) button.animateOut = { enabled: false, delay: 5 };
+        if (!button.containsImage) button.containsImage = false;
+        if (!button.imageUrl) button.imageUrl = '';
 
         // Define style reference early so subsequent code can use it safely
         const style = button.style;
@@ -1962,6 +1969,17 @@ const spreadOutBtn = getElement('spread-out-btn');
         if(nodeLinkContainer) nodeLinkContainer.style.display = button.linkType === 'node' ? 'block' : 'none';
         if(urlLinkContainer) urlLinkContainer.style.display = button.linkType === 'url' ? 'block' : 'none';
         if(embedCodeContainer) embedCodeContainer.style.display = button.linkType === 'embed' ? 'block' : 'none';
+
+        const containsImageCheckbox = getElement('contains-image-checkbox');
+        const imageUrlContainer = getElement('image-url-container');
+        if (containsImageCheckbox && imageUrlContainer) {
+            containsImageCheckbox.checked = button.containsImage || false;
+            imageUrlContainer.style.display = containsImageCheckbox.checked ? 'block' : 'none';
+            const imageUrlInput = getElement('button-image-url');
+            if (imageUrlInput) {
+                imageUrlInput.value = button.imageUrl || '';
+            }
+        }
 
         const containerRect = nodeVideoButtonsOverlay.getBoundingClientRect();
         const x = button.position ? parseFloat(button.position.x) || 40 : 40;
