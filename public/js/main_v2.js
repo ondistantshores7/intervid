@@ -1603,17 +1603,19 @@ const spreadOutBtn = getElement('spread-out-btn');
                 if (!node) return;
                 pushToUndoStack(); // Save state before changing button at end status
 
+                const button = node.buttons.find(b => b.id === selectedButtonId);
+                if (!button) return;
+                
                 if (buttonAtEndCheckbox.checked) {
                     const vidDur = nodeVideoPreview.duration || 0;
-                    const button = node.buttons.find(b => b.id === selectedButtonId);
-                    if (button) {
-                        button.time = vidDur > 0 ? Math.max(0, vidDur - 0.1) : 0;
-                        buttonTimeInput.disabled = true;
-                    }
+                    button.time = vidDur > 0 ? Math.max(0, vidDur - 0.1) : 0;
+                    buttonTimeInput.disabled = true;
                 } else {
                     buttonTimeInput.disabled = false;
+                    // Reset time to 0 or current value if unchecking
+                    button.time = parseFloat(buttonTimeInput.value) || 0;
                 }
-                buttonTimeInput.value = node.buttons.find(b => b.id === selectedButtonId).time || 0;
+                buttonTimeInput.value = button.time;
                 if (currentProject) saveProjectToSupabase(currentProject);
                 renderButtons();
                 selectButton(selectedButtonId);
