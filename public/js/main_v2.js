@@ -1387,7 +1387,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                     opt.textContent = v.name;
                     importButtonsSelect.appendChild(opt);
                 });
-        };
+            };
 
         if (importButtonsSelect) {
             importButtonsSelect.addEventListener('change', () => {
@@ -1936,8 +1936,9 @@ const spreadOutBtn = getElement('spread-out-btn');
         if (buttonAtEndCheckbox) {
             const dur = nodeVideoPreview.duration || 0;
             const atEnd = dur > 0 && Math.abs(dur - button.time) < 0.5; // Increased tolerance
-            buttonAtEndCheckbox.checked = atEnd && buttonTimeInput.disabled;
-            buttonTimeInput.disabled = atEnd && buttonAtEndCheckbox.checked;
+            // Do not automatically set checkbox state on selection
+            // buttonAtEndCheckbox.checked = atEnd && buttonTimeInput.disabled;
+            buttonTimeInput.disabled = buttonAtEndCheckbox.checked && atEnd;
         }
         // Populate button target node dropdown
         if (buttonTargetNode && currentProject && currentProject.videos && selectedNodeId) {
