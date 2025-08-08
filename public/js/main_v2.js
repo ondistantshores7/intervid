@@ -2951,4 +2951,38 @@ const saveCurrentProject = async () => {
     }
 };
 
-```
+// Setup or update button editor panel with new image fields
+let buttonLinkType = getElement('button-link-type');
+let nodeLinkContainer = getElement('node-link-container');
+let urlLinkContainer = getElement('url-link-container');
+let embedCodeContainer = getElement('embed-code-container');
+let containsImageContainer = document.createElement('div');
+containsImageContainer.style.marginTop = '10px';
+containsImageContainer.innerHTML = `
+    <label style="display: block; margin-bottom: 5px;">Contains Image:</label>
+    <input type="checkbox" id="contains-image-checkbox" style="margin-right: 5px;">
+`;
+let imageUrlContainer = document.createElement('div');
+imageUrlContainer.id = 'image-url-container';
+imageUrlContainer.style.display = 'none';
+imageUrlContainer.style.marginTop = '10px';
+imageUrlContainer.innerHTML = `
+    <label for="button-image-url" style="display: block; margin-bottom: 5px;">Image URL:</label>
+    <input type="text" id="button-image-url" placeholder="Enter image URL" style="width: 100%; padding: 5px; box-sizing: border-box;">
+`;
+if (buttonLinkType) {
+    const linkTypeContainer = buttonLinkType.parentElement;
+    linkTypeContainer.insertAdjacentElement('afterend', containsImageContainer);
+    containsImageContainer.insertAdjacentElement('afterend', imageUrlContainer);
+}
+let containsImageCheckbox = getElement('contains-image-checkbox');
+let imageUrlInput = getElement('button-image-url');
+if (containsImageCheckbox && imageUrlContainer) {
+    containsImageCheckbox.addEventListener('change', () => {
+        imageUrlContainer.style.display = containsImageCheckbox.checked ? 'block' : 'none';
+        updateButtonFromEditor();
+    });
+}
+if (imageUrlInput) {
+    imageUrlInput.addEventListener('input', updateButtonFromEditor);
+}
