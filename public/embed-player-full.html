@@ -139,10 +139,24 @@
 
     <!-- Using the EXACT same player script as the preview function -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <script src="https://intervid.pages.dev/js/player.js?v=latest"></script>
+    <script src="/js/player.js?v=latest"></script>
     
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
+            // Check if player script loaded successfully
+            if (typeof IVSPlayer === 'undefined') {
+                console.error('IVSPlayer class is not defined. Script likely blocked.');
+                document.body.innerHTML = `
+                    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:white;font-family:sans-serif;text-align:center;padding:20px;">
+                        <h2 style="margin-bottom:10px;">Player Script Blocked</h2>
+                        <p>The interactive video player could not be loaded.</p>
+                        <p style="font-size:0.9em;opacity:0.8;">If you are on a school network, please ask your IT department to whitelist:</p>
+                        <code style="background:rgba(255,255,255,0.1);padding:5px 10px;border-radius:4px;">learn.threeminutetheory.com</code>
+                    </div>
+                `;
+                return;
+            }
+
             // Extract project ID from URL parameters
             const urlParams = new URLSearchParams(window.location.search);
             const projectId = urlParams.get('project');
