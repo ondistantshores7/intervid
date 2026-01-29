@@ -1,6 +1,6 @@
-(function() {
+(function () {
     // --- Embed Security: Domain Locking ---
-            const allowedDomains = [
+    const allowedDomains = [
         'threeminutetheory.com',       // Your primary custom domain
         'learn.threeminutetheory.com', // Your learning subdomain
         'kajabi.com',                  // Base Kajabi domain
@@ -11,9 +11,9 @@
     ];
 
     try {
-                const selfHost = window.location.hostname;
+        const selfHost = window.location.hostname;
         let parentHost = '';
-        try { parentHost = new URL(document.referrer || '').hostname; } catch (_) {}
+        try { parentHost = new URL(document.referrer || '').hostname; } catch (_) { }
         const isAllowedHost = (host) => allowedDomains.some(domain => host === domain || host.endsWith('.' + domain));
         const allowed = isAllowedHost(selfHost) || (parentHost && isAllowedHost(parentHost));
         // (replaced by new allowed logic above)
@@ -47,17 +47,17 @@
 })();
 
 // Auto-initialize player when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     console.log('DOM ready, looking for player containers...');
-    
+
     // Find all player containers
     const containers = document.querySelectorAll('[data-project]');
     console.log('Found ' + containers.length + ' player containers');
-    
+
     containers.forEach(container => {
         const projectId = container.getAttribute('data-project');
         console.log('Initializing player for project: ' + projectId);
-        
+
         // Initialize each player
         initPlayer(container, projectId);
     });
@@ -75,16 +75,16 @@ async function initPlayer(container, projectId) {
         }
         const responseText = await response.text();
         console.log('Raw API response:', responseText);
-        
+
         let projectData;
         try {
             projectData = JSON.parse(responseText);
-            console.log('Project data loaded:', projectData);  
+            console.log('Project data loaded:', projectData);
         } catch (e) {
             console.error('JSON parse error:', e);
             throw new Error('Invalid project data format');
         }
-        
+
         // Create player HTML
         const playerHTML = `
             <div id="video-container" style="position:relative; width:100%; height:100%;">
@@ -92,13 +92,13 @@ async function initPlayer(container, projectId) {
                 <div class="preview-buttons-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:10; pointer-events:none;"></div>
             </div>
         `;
-        
+
         // Find the embed container
         const embedContainer = container.querySelector('.iv-player_embed');
         if (embedContainer) {
             console.log('Found embed container, inserting player HTML');
             embedContainer.innerHTML = playerHTML;
-            
+
             // Initialize player
             const startNodeId = projectData.startNodeId || (projectData.videos && projectData.videos.length > 0 ? projectData.videos[0].id : null);
             console.log('Using start node:', startNodeId);
@@ -181,7 +181,7 @@ class IVSPlayer {
         Object.assign(this.videoSelectArrow.style, {
             position: 'absolute',
             bottom: '52px',
-            right: '108px', 
+            right: '108px',
             zIndex: 31,
             background: 'rgba(0,0,0,0.6)',
             color: '#fff',
@@ -249,23 +249,23 @@ class IVSPlayer {
             display: 'none'
         });
         // Build video buttons dynamically
-        const createJumpBtn =(label,nodeId)=>{
-            const b=document.createElement('button');
-            b.textContent=label;
-            b.dataset.nodeId=nodeId;
-            Object.assign(b.style,{display:'block',width:'100%',margin:'4px 0',background:'#fff',border:'none',padding:'4px 6px',cursor:'pointer',fontSize:'12px'});
+        const createJumpBtn = (label, nodeId) => {
+            const b = document.createElement('button');
+            b.textContent = label;
+            b.dataset.nodeId = nodeId;
+            Object.assign(b.style, { display: 'block', width: '100%', margin: '4px 0', background: '#fff', border: 'none', padding: '4px 6px', cursor: 'pointer', fontSize: '12px' });
             return b;
         };
-        if(this.project?.videos?.length){
-            const lessonNode=this.project.videos[0];
-            this.videoSelectPanel.appendChild(createJumpBtn('Lesson Video',lessonNode.id));
+        if (this.project?.videos?.length) {
+            const lessonNode = this.project.videos[0];
+            this.videoSelectPanel.appendChild(createJumpBtn('Lesson Video', lessonNode.id));
             // Match nodes titled "Question #1" etc
-            ['Question #1','Question #2','Question #3'].forEach(q=>{
-                const n=this.project.videos.find(v=> (v.title||v.name||'').trim().toLowerCase()===q.toLowerCase());
-                if(n) this.videoSelectPanel.appendChild(createJumpBtn(q,n.id));
+            ['Question #1', 'Question #2', 'Question #3'].forEach(q => {
+                const n = this.project.videos.find(v => (v.title || v.name || '').trim().toLowerCase() === q.toLowerCase());
+                if (n) this.videoSelectPanel.appendChild(createJumpBtn(q, n.id));
             });
         }
-        
+
         this.overlay.appendChild(this.videoSelectPanel);
 
         this.videoSelectPanel.addEventListener('click', (e) => {
@@ -283,18 +283,18 @@ class IVSPlayer {
         // toggle panel
         this.menuBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            if(this.captionSwitch.style.display==='none' && this.videoSelectPanel.style.display==='none'){
-                this.captionSwitch.style.display='block';
-            }else{
-                this.captionSwitch.style.display='none';
-                this.videoSelectPanel.style.display='none';
+            if (this.captionSwitch.style.display === 'none' && this.videoSelectPanel.style.display === 'none') {
+                this.captionSwitch.style.display = 'block';
+            } else {
+                this.captionSwitch.style.display = 'none';
+                this.videoSelectPanel.style.display = 'none';
             }
         });
         // hide when clicking outside
         this.overlay.addEventListener('click', (e) => {
             const clickedInPanels = this.captionSwitch.contains(e.target) || this.videoSelectPanel.contains(e.target) || e.target === this.menuBtn || e.target === this.videoSelectArrow || (this.canvas && this.canvas.contains(e.target)) || this.isHighlightMode;
             if (!clickedInPanels) {
-                
+
                 // hide any open panels
                 this.captionSwitch.style.display = 'none';
                 this.videoSelectPanel.style.display = 'none';
@@ -402,8 +402,8 @@ class IVSPlayer {
             this.overlay.addEventListener('mouseleave', () => {
                 this.fullscreenBtn.style.opacity = '0';
                 this.fullscreenBtn.style.pointerEvents = 'none';
-                    this.videoSelectArrow.style.opacity = '0';
-                    this.videoSelectArrow.style.pointerEvents = 'none';
+                this.videoSelectArrow.style.opacity = '0';
+                this.videoSelectArrow.style.pointerEvents = 'none';
             });
             // Also show when entering fullscreen (controls often fade in at entry)
             document.addEventListener('fullscreenchange', () => {
@@ -418,7 +418,7 @@ class IVSPlayer {
                     if (document.fullscreenElement) {
                         document.exitFullscreen();
                     } else {
-                        this.overlay.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+                        this.overlay.requestFullscreen({ navigationUI: 'hide' }).catch(() => { });
                     }
                 } catch (_) { /* ignored */ }
             });
@@ -426,7 +426,7 @@ class IVSPlayer {
             // Disable native fullscreen control on video to avoid confusion (not supported in all browsers)
             try {
                 this.videoEl.setAttribute('controlsList', 'nofullscreen');
-            } catch (_) {}
+            } catch (_) { }
 
             this.playBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -494,7 +494,7 @@ class IVSPlayer {
                     if (document.fullscreenElement) {
                         document.exitFullscreen();
                     } else {
-                        this.overlay.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+                        this.overlay.requestFullscreen({ navigationUI: 'hide' }).catch(() => { });
                     }
                 } catch (_) { /* ignored */ }
             });
@@ -562,7 +562,7 @@ class IVSPlayer {
             this.ctx.lineWidth = 6;
             this.currentColor = '#2196f3'; // bright blue
             this.ctx.strokeStyle = this.currentColor;
-            
+
             this.ctx.lineCap = 'round';
             this.ctx.lineJoin = 'round';
 
@@ -575,7 +575,7 @@ class IVSPlayer {
                 this.canvas.height = height * dpr;
                 this.canvas.style.width = width + 'px';
                 this.canvas.style.height = height + 'px';
-                this.ctx.setTransform(1,0,0,1,0,0);
+                this.ctx.setTransform(1, 0, 0, 1, 0, 0);
                 this.ctx.scale(dpr, dpr);
             };
             resize();
@@ -626,8 +626,8 @@ class IVSPlayer {
             this.highlighterBtn.title = 'Highlighter Tool';
             this.highlighterBtn.textContent = '🖍️';
             Object.assign(this.highlighterBtn.style, {
-                 top: 'auto',
-                 left: 'auto',
+                top: 'auto',
+                left: 'auto',
                 position: 'absolute',
                 bottom: '60px',
                 right: '5px',
@@ -668,10 +668,10 @@ class IVSPlayer {
                 cursor: 'pointer',
                 zIndex: 6
             });
-            this.clearHighlightsBtn.addEventListener('click', (e)=>{
+            this.clearHighlightsBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 // Clear drawings
-                this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                 // Exit highlight mode and restore UI
                 this.isHighlightMode = false;
                 this.canvas.style.pointerEvents = 'none';
@@ -681,7 +681,7 @@ class IVSPlayer {
             });
             buttonParent.appendChild(this.clearHighlightsBtn);
 
-            this.colorPicker.addEventListener('input', (e)=>{
+            this.colorPicker.addEventListener('input', (e) => {
                 this.currentColor = e.target.value;
                 this.ctx.strokeStyle = this.currentColor;
             });
@@ -689,19 +689,19 @@ class IVSPlayer {
             const toggleHighlight = (e) => {
                 e.stopPropagation();
                 this.isHighlightMode = !this.isHighlightMode;
-                if(this.isHighlightMode){
+                if (this.isHighlightMode) {
                     this.colorPicker.style.display = 'block';
                     this.clearHighlightsBtn.style.display = 'block';
                     this.videoEl.pause();
                     // no longer blocking video clicks
-                }else{
+                } else {
                     this.colorPicker.style.display = 'none';
                     this.clearHighlightsBtn.style.display = 'none';
-                    
+
                 }
                 this.highlighterBtn.classList.toggle('active', this.isHighlightMode);
                 this.canvas.style.pointerEvents = this.isHighlightMode ? 'auto' : 'none';
-                
+
             };
             this.highlighterBtn.addEventListener('click', toggleHighlight);
 
@@ -712,8 +712,8 @@ class IVSPlayer {
                 this.staffBtn.title = 'Music Staff Overlay';
                 this.staffBtn.textContent = '🎼';
                 Object.assign(this.staffBtn.style, {
-                     top: 'auto',
-                     left: 'auto',
+                    top: 'auto',
+                    left: 'auto',
                     position: 'absolute',
                     bottom: '180px',
                     right: '5px',
@@ -768,11 +768,11 @@ class IVSPlayer {
                 });
                 closeBtn.style.display = 'none';
                 closeBtn.style.zIndex = '999';
-                closeBtn.addEventListener('click', ()=>{
+                closeBtn.addEventListener('click', () => {
                     this.staffOverlay.style.display = 'none';
                     // Clear any highlights
                     if (this.ctx) {
-                        this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+                        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                     }
                     // Disable highlight mode
                     this.isHighlightMode = false;
@@ -787,7 +787,7 @@ class IVSPlayer {
                 buttonParent.appendChild(this.staffOverlay);
 
                 // Toggle overlay on button click
-                this.staffBtn.addEventListener('click', (e)=>{
+                this.staffBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const showing = this.staffOverlay.style.display === 'flex';
                     if (!showing) {
@@ -812,14 +812,14 @@ class IVSPlayer {
 
         // Show/hide button based on play state
         this.videoEl.addEventListener('pause', () => {
-            if(this.staffBtn) this.staffBtn.style.display = 'block';
+            if (this.staffBtn) this.staffBtn.style.display = 'block';
             this.highlighterBtn.style.display = 'block';
         });
         this.videoEl.addEventListener('play', () => {
-            if(this.colorPicker) this.colorPicker.style.display = 'none';
-            if(this.clearHighlightsBtn) this.clearHighlightsBtn.style.display = 'none';
+            if (this.colorPicker) this.colorPicker.style.display = 'none';
+            if (this.clearHighlightsBtn) this.clearHighlightsBtn.style.display = 'none';
             this.highlighterBtn.style.display = 'none';
-            if(this.staffBtn) this.staffBtn.style.display = 'none';
+            if (this.staffBtn) this.staffBtn.style.display = 'none';
             this.isHighlightMode = false;
             this.canvas.style.pointerEvents = 'none';
             this.highlighterBtn.classList.remove('active');
@@ -850,7 +850,7 @@ class IVSPlayer {
             this.staffOverlay.style.display = 'none';
         }
         if (this.ctx && this.canvas) {
-            this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         }
         this.isHighlightMode = false;
         if (this.canvas) this.canvas.style.pointerEvents = 'none';
@@ -859,7 +859,7 @@ class IVSPlayer {
         if (this.highlighterBtn) this.highlighterBtn.classList.remove('active');
 
         this.animatedButtons.clear(); // Reset animated buttons for new video
-        
+
         const node = this.project.videos.find(v => v.id === nodeId);
         if (!node) {
             console.error('Node not found:', nodeId);
@@ -914,9 +914,9 @@ class IVSPlayer {
         }
         this.videoEl.addEventListener('ended', this.videoEndedHandler);
 
-        
+
     }
-    
+
     clearAllButtonTimeouts() {
         // Clear any pending timeouts for button animations
         this.activeButtons.forEach(({ timeoutId }) => {
@@ -930,7 +930,7 @@ class IVSPlayer {
         this.currentNode.buttons.forEach(button => {
             const buttonEl = this.buttonsContainer.querySelector(`[data-button-id='${button.id}']`);
             const showTime = button.time;
-                                    const shouldAnimateOut = this.persistentButtons ? false : !!button.animateOut?.enabled;
+            const shouldAnimateOut = this.persistentButtons ? false : !!button.animateOut?.enabled;
             const defaultVisibleDuration = 5;
             const endTime = shouldAnimateOut ? showTime + (button.animateOut.delay || defaultVisibleDuration) : Number.POSITIVE_INFINITY;
 
@@ -956,17 +956,17 @@ class IVSPlayer {
             if (isWithinShowTime && !buttonEl && !hasAnimatedIn) {
                 const newButtonEl = this.createButton(button);
                 this.animatedButtons.add(button.id);
-                
+
                 // If animate out is enabled, set a timeout to animate it out
                 if (shouldAnimateOut) {
                     const delayMs = (button.animateOut.delay || 5) * 1000;
                     const timeoutId = setTimeout(() => {
                         this.animateOutButton(button.id);
                     }, delayMs);
-                    
+
                     // Store the timeout ID and button element
-                    this.activeButtons.set(button.id, { 
-                        buttonEl: newButtonEl, 
+                    this.activeButtons.set(button.id, {
+                        buttonEl: newButtonEl,
                         timeoutId,
                         hasAnimatedOut: false
                     });
@@ -989,46 +989,46 @@ class IVSPlayer {
             }
         });
     }
-    
+
     animateOutButton(buttonId) {
         const buttonEl = this.buttonsContainer.querySelector(`[data-button-id='${buttonId}']`);
         if (!buttonEl) return;
-        
+
         const buttonData = this.activeButtons.get(buttonId);
         if (!buttonData || buttonData.hasAnimatedOut) return;
 
         // Mark that this button has animated out
         buttonData.hasAnimatedOut = true;
-        
+
         const nodeButtonData = this.currentNode.buttons.find(b => b.id === buttonId);
         if (!nodeButtonData) return;
-        
+
         // Remove any existing animation classes
         const animationClasses = [
-            'anim-fade-in', 'anim-slide-left', 'anim-slide-right', 
+            'anim-fade-in', 'anim-slide-left', 'anim-slide-right',
             'anim-slide-top', 'anim-slide-bottom', 'anim-fade-out',
             'anim-slide-out-left', 'anim-slide-out-right',
             'anim-slide-out-top', 'anim-slide-out-bottom'
         ];
         buttonEl.classList.remove(...animationClasses);
-        
+
         // Add the corresponding out animation based on the button's animation type
         let outAnimClass = 'anim-fade-out'; // Default to fade out
-        
+
         if (nodeButtonData.animation?.type === 'slide' && nodeButtonData.animation.direction) {
             outAnimClass = `anim-slide-out-${nodeButtonData.animation.direction}`;
         }
-        
+
         // Apply the out animation
         buttonEl.classList.add(outAnimClass);
-        
+
         // Set up cleanup after animation completes
         const duration = (parseFloat(nodeButtonData.animation?.duration) || 1) * 1000;
-        
+
         // Store the end time to prevent re-animation
         const endTime = (nodeButtonData.time || 0) + (nodeButtonData.animateOut?.delay || 5);
         this.animatedButtons.add(buttonId);
-        
+
         // Remove the button after animation completes
         setTimeout(() => {
             if (buttonEl.parentNode) {
@@ -1044,7 +1044,7 @@ class IVSPlayer {
         if (existingButton) {
             existingButton.remove();
         }
-        
+
         const buttonEl = document.createElement('button');
         buttonEl.className = 'video-overlay-button';
         // Ensure gentle hover scale animation even if external CSS not loaded
@@ -1066,6 +1066,19 @@ class IVSPlayer {
             buttonEl.classList.add('embed-container');
             buttonEl.innerHTML = buttonData.embedCode || '';
             // For embeds, we don't want flex centering, we want the content to fill the space.
+        } else if (buttonData.containsImage) {
+            buttonEl.innerHTML = '';
+            const img = document.createElement('img');
+            img.src = buttonData.imageUrl;
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'contain';
+            img.style.pointerEvents = 'none'; // Ensure clicks go to button
+            buttonEl.appendChild(img);
+            // Force transparent background and no border/shadow
+            buttonEl.style.setProperty('background', 'transparent', 'important');
+            buttonEl.style.setProperty('border', 'none', 'important');
+            buttonEl.style.setProperty('box-shadow', 'none', 'important');
         } else {
             buttonEl.innerHTML = (buttonData.text || '').replace(/\n/g, '<br>');
             // For text buttons, apply flex for centering
@@ -1075,7 +1088,7 @@ class IVSPlayer {
                 justifyContent: 'center'
             });
         }
-        
+
         // Apply the base styles
         // Ensure font and opacity are explicitly applied
         if (buttonStyle.fontFamily) buttonEl.style.fontFamily = buttonStyle.fontFamily;
@@ -1105,27 +1118,27 @@ class IVSPlayer {
         } else {
             buttonEl.style.boxShadow = 'none';
         }
-        
+
         // Apply animation if specified
         if (buttonData.animation?.type !== 'none') {
-            const animClass = buttonData.animation.type === 'slide' 
-                ? `anim-slide-${buttonData.animation.direction || 'left'}` 
+            const animClass = buttonData.animation.type === 'slide'
+                ? `anim-slide-${buttonData.animation.direction || 'left'}`
                 : 'anim-fade-in';
-                
+
             buttonEl.classList.add(animClass);
             buttonEl.style.animationDuration = `${buttonData.animation.duration || 1}s`;
             // Remove entrance animation class after it finishes so it doesn't replay on hover/unhover cycles
             buttonEl.addEventListener('animationend', () => {
                 buttonEl.classList.remove(animClass);
             }, { once: true });
-            
+
             // Force reflow to ensure animation plays
             void buttonEl.offsetWidth;
         } else {
             // If no animation, just show the button
             buttonEl.style.opacity = '1';
         }
-        
+
         this.buttonsContainer.appendChild(buttonEl);
         // Orig font px already stored above
         this.adjustFontSize(buttonEl);
@@ -1135,14 +1148,14 @@ class IVSPlayer {
 
     debugSubtitleState(label) {
         try {
-            const tracks = Array.from(this.videoEl?.textTracks || []).map((t,i)=>({i,mode:t.mode,lang:t.language,label:t.label}));
+            const tracks = Array.from(this.videoEl?.textTracks || []).map((t, i) => ({ i, mode: t.mode, lang: t.language, label: t.label }));
             const hlsInfo = this.hls ? {
                 subtitleDisplay: this.hls.subtitleDisplay,
                 subtitleTrack: this.hls.subtitleTrack,
-                tracks: (this.hls.subtitleTracks||[]).map((t,i)=>({i,lang:t.lang,name:t.name}))
+                tracks: (this.hls.subtitleTracks || []).map((t, i) => ({ i, lang: t.lang, name: t.name }))
             } : 'no-hls';
-            console.log('[IVS DEBUG]', label, {pref:this.currentSubtitleLang, browserTracks:tracks, hls:hlsInfo});
-        } catch(e){}
+            console.log('[IVS DEBUG]', label, { pref: this.currentSubtitleLang, browserTracks: tracks, hls: hlsInfo });
+        } catch (e) { }
     }
 
 
@@ -1230,7 +1243,7 @@ class IVSPlayer {
                 track.mode = 'hidden';
             } else {
                 const match = (track.language && track.language.toLowerCase().startsWith(langCode)) ||
-                              (track.label && track.label.toLowerCase().includes(langCode));
+                    (track.label && track.label.toLowerCase().includes(langCode));
                 track.mode = match ? 'showing' : 'disabled';
             }
         }
@@ -1238,7 +1251,7 @@ class IVSPlayer {
         const applied = Array.from(this.videoEl.textTracks).some(t => {
             if (!langCode || langCode === 'off') return t.mode === 'disabled';
             const matches = (t.language && t.language.toLowerCase().startsWith(langCode)) ||
-                            (t.label && t.label.toLowerCase().includes(langCode));
+                (t.label && t.label.toLowerCase().includes(langCode));
             return matches && t.mode === 'showing';
         });
         if (!applied && retryLeft > 0) {
@@ -1276,7 +1289,7 @@ class IVSPlayer {
                 matched = Array.from(this.videoEl.textTracks || []).some(t => langMatches(t, pref) && t.mode === 'showing');
                 if (!matched && this.hls && this.hls.subtitleTrack > -1) {
                     const sel = this.hls.subtitleTracks[this.hls.subtitleTrack];
-                    matched = langMatches({lang: sel?.lang, name: sel?.name}, pref);
+                    matched = langMatches({ lang: sel?.lang, name: sel?.name }, pref);
                 }
             }
             if (!matched) {
@@ -1307,7 +1320,7 @@ class IVSPlayer {
             return false;
         };
         const tracks = this.hls.subtitleTracks || [];
-        const idx = tracks.findIndex(t => langMatches({lang: t.lang, name: t.name}, pref));
+        const idx = tracks.findIndex(t => langMatches({ lang: t.lang, name: t.name }, pref));
         this.hls.subtitleDisplay = true;
         this.hls.subtitleTrack = idx !== -1 ? idx : -1;
     }
@@ -1381,13 +1394,13 @@ class IVSPlayer {
 
         if (!endAction || !endAction.type) {
             console.log('No end action defined or type is missing for node:', this.currentNode.id);
-            return; 
+            return;
         }
 
         switch (endAction.type) {
             case 'loop':
-                                                this.loopCount++;
-                
+                this.loopCount++;
+
                 console.log(`Looping video (${this.loopCount}/3)`);
                 if (this.loopCount < 3) {
                     // If we haven't reached 3 loops, play again
@@ -1434,17 +1447,17 @@ class IVSPlayer {
     // Find the next node in the flow (for after loop completes)
     findNextNodeId() {
         if (!this.currentNode || !this.project.connections) return null;
-        
+
         // Find connections where this node is the source
         const connections = this.project.connections.filter(
             conn => conn.sourceId === this.currentNode.id
         );
-        
+
         if (connections.length > 0) {
             // Just take the first connection for simplicity
             return connections[0].targetId;
         }
-        
+
         return null;
     }
 

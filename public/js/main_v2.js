@@ -29,12 +29,12 @@ document.addEventListener('DOMContentLoaded', () => {
             b = parseInt(hex[5] + hex[6], 16);
         }
         return `rgba(${r},${g},${b},${opacity})`;
-};
+    };
 
-// -- Auth helper: currently backend cookie is HttpOnly, so client cannot read it directly.
-// We return null for now to indicate "unknown" session status; login flows will manually
-// call updateAuthUI() once credentials are verified.
-const getSessionFromCookie = () => null;
+    // -- Auth helper: currently backend cookie is HttpOnly, so client cannot read it directly.
+    // We return null for now to indicate "unknown" session status; login flows will manually
+    // call updateAuthUI() once credentials are verified.
+    const getSessionFromCookie = () => null;
 
     const getElement = (id) => {
         const element = document.getElementById(id);
@@ -56,12 +56,12 @@ const getSessionFromCookie = () => null;
 
     const getButtonEffectiveDuration = (button, videoDuration) => {
         const buttonStartTime = button.time || 0;
-    
+
         // Priority 1: Animate Out is enabled. Duration is the animate out delay.
         if (button.animateOut && button.animateOut.enabled) {
             return button.animateOut.delay || 5; // Use animateOut.delay, with a fallback to 5.
         }
-    
+
         // Priority 2: An explicit duration is set by the user.
         let explicitUserDuration = null;
         const DEFAULT_PLACEHOLDER_DURATION = 5;
@@ -78,14 +78,14 @@ const getSessionFromCookie = () => null;
         if (explicitUserDuration !== null && explicitUserDuration !== DEFAULT_PLACEHOLDER_DURATION) {
             return explicitUserDuration;
         }
-    
+
         // Priority 3: Default behavior - extend to the end of the video.
         if (videoDuration && videoDuration > buttonStartTime) {
             return videoDuration - buttonStartTime;
         }
-    
+
         // Fallback duration if all else fails (e.g., no video duration).
-        return 0.1; 
+        return 0.1;
     };
 
     const dashboardView = getElement('dashboard');
@@ -121,8 +121,8 @@ const getSessionFromCookie = () => null;
     const buttonTargetUrl = getElement('button-target-url');
     const deleteButtonBtn = getElement('delete-button-btn');
     const duplicateButtonBtn = getElement('duplicate-button-btn');
-const alignCenterBtn = getElement('align-center-btn');
-const spreadOutBtn = getElement('spread-out-btn');
+    const alignCenterBtn = getElement('align-center-btn');
+    const spreadOutBtn = getElement('spread-out-btn');
 
     const buttonPosXInput = getElement('button-pos-x-input');
     const buttonPosYInput = getElement('button-pos-y-input');
@@ -417,7 +417,7 @@ const spreadOutBtn = getElement('spread-out-btn');
 
             // successful login; Supabase client handles session cookie automatically
             // UI update will be handled by onAuthStateChange
-        } catch(err) {
+        } catch (err) {
             alert(err.message);
             console.error(err);
         }
@@ -427,7 +427,7 @@ const spreadOutBtn = getElement('spread-out-btn');
         try {
             await supabase.auth.signOut(); // clear Supabase session (noop for guest)
             await fetch('/api/logout', { method: 'POST' }); // clear worker cookie
-        } catch(err) {
+        } catch (err) {
             console.warn('Sign-out encountered an issue', err);
         }
         updateAuthUI(null); // permanently switches UI back to login screen
@@ -567,15 +567,15 @@ const spreadOutBtn = getElement('spread-out-btn');
                     nodeEl.classList.remove('node-selected');
                     selectedNodeId = null;
                     // TODO: Disable Duplicate/Delete buttons
-                    if(duplicateNodeBtn) duplicateNodeBtn.disabled = true;
-                    if(deleteNodeBtn) deleteNodeBtn.disabled = true;
+                    if (duplicateNodeBtn) duplicateNodeBtn.disabled = true;
+                    if (deleteNodeBtn) deleteNodeBtn.disabled = true;
                 } else {
                     // Not selected, so select it
                     nodeEl.classList.add('node-selected');
                     selectedNodeId = node.id;
                     // TODO: Enable Duplicate/Delete buttons
-                    if(duplicateNodeBtn) duplicateNodeBtn.disabled = false;
-                    if(deleteNodeBtn) deleteNodeBtn.disabled = false;
+                    if (duplicateNodeBtn) duplicateNodeBtn.disabled = false;
+                    if (deleteNodeBtn) deleteNodeBtn.disabled = false;
                 }
                 console.log('Selected node ID:', selectedNodeId);
             });
@@ -583,10 +583,10 @@ const spreadOutBtn = getElement('spread-out-btn');
             // Set node label
             nodeEl.innerHTML = `<h4>${node.name}</h4>`;
             // connectors
-            const inputDot=document.createElement('div');inputDot.className='node-input';inputDot.dataset.nodeTarget=node.id;
-            const outputDot=document.createElement('div');outputDot.className='node-output';outputDot.dataset.nodeSource=node.id;
-            outputDot.addEventListener('mousedown',startConnectionDrag);
-            inputDot.addEventListener('mouseup',finishConnectionDrag);
+            const inputDot = document.createElement('div'); inputDot.className = 'node-input'; inputDot.dataset.nodeTarget = node.id;
+            const outputDot = document.createElement('div'); outputDot.className = 'node-output'; outputDot.dataset.nodeSource = node.id;
+            outputDot.addEventListener('mousedown', startConnectionDrag);
+            inputDot.addEventListener('mouseup', finishConnectionDrag);
             nodeEl.append(inputDot, outputDot);
             nodesContainer.appendChild(nodeEl);
         }); // end forEach
@@ -629,7 +629,7 @@ const spreadOutBtn = getElement('spread-out-btn');
             // --- Timeline Bar Logic (with stacking) ---
             if (nodeVideoPreview.duration && nodeVideoPreview.duration > 0) {
                 const buttonStartTime = button.time || 0;
-    
+
                 let buttonDuration = getButtonEffectiveDuration(button, nodeVideoPreview.duration);
                 if (buttonDuration <= 0) {
                     buttonDuration = 0.1; // Ensure positive duration
@@ -651,7 +651,7 @@ const spreadOutBtn = getElement('spread-out-btn');
 
                 const bar = document.createElement('div');
                 bar.className = 'timeline-button-bar';
-                
+
                 const barLeftPercent = (buttonStartTime / nodeVideoPreview.duration) * 100;
                 const barWidthPercent = (buttonDuration / nodeVideoPreview.duration) * 100;
 
@@ -674,7 +674,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                             selectButton(clickedButtonId);
                         }
                     });
-                    
+
                     timelineMarkers.appendChild(bar);
                 } else {
                     console.warn('Button time or duration resulted in NaN for timeline bar:', button);
@@ -688,7 +688,7 @@ const spreadOutBtn = getElement('spread-out-btn');
             // Ensure hover scale in preview overlay regardless of CSS precedence
             buttonPreview.style.transition = 'transform 0.3s cubic-bezier(0.25,0.8,0.25,1)';
             // hover pulse handled by CSS
-            
+
             buttonPreview.dataset.buttonId = button.id;
 
             // Apply all saved styles first, as a base
@@ -730,7 +730,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                     buttonPreview.style.padding = paddingValues.map(p => (p * scaleFactor) + 'px').join(' ');
                 }
             }
-             // Explicitly set width, height, and position in pixels to prevent resizing from content changes
+            // Explicitly set width, height, and position in pixels to prevent resizing from content changes
             const containerRect = nodeVideoButtonsOverlay.getBoundingClientRect();
             // Use the original stored data from currentProject to ensure consistency, not potentially modified style properties
             const buttonData = node.buttons.find(b => b.id === button.id) || button;
@@ -757,25 +757,31 @@ const spreadOutBtn = getElement('spread-out-btn');
                 buttonPreview.classList.add('embed-container');
                 buttonPreview.innerHTML = button.embedCode || '';
             } else if (button.containsImage) {
+                buttonPreview.innerHTML = ''; // Clear previous content
                 const img = document.createElement('img');
                 img.src = button.imageUrl;
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'contain';
+                img.style.pointerEvents = 'none'; // Ensure clicks go to button
                 buttonPreview.appendChild(img);
-                buttonPreview.textContent = button.text;
+                buttonPreview.style.setProperty('background', 'transparent', 'important');
+                buttonPreview.style.setProperty('border', 'none', 'important');
+                buttonPreview.style.setProperty('box-shadow', 'none', 'important'); // Kill shadow on container
             } else {
                 buttonPreview.textContent = button.text;
-            }
-
-            // Apply SCALED shadow
-            if (button.shadow && button.shadow.enabled) {
-                const s = button.shadow;
-                const shadowColor = hexToRgba(s.color || '#000000', parseFloat(s.opacity) || 0.5);
-                const hOffset = (parseFloat(s.hOffset) || 0) * scaleFactor;
-                const vOffset = (parseFloat(s.vOffset) || 0) * scaleFactor;
-                const blur = (parseFloat(s.blur) || 5) * scaleFactor;
-                const spread = (parseFloat(s.spread) || 0) * scaleFactor;
-                buttonPreview.style.boxShadow = `${hOffset}px ${vOffset}px ${blur}px ${spread}px ${shadowColor}`;
-            } else {
-                buttonPreview.style.boxShadow = 'none';
+                // Apply SCALED shadow only for text buttons or if we want shadow on image (complex)
+                if (button.shadow && button.shadow.enabled) {
+                    const s = button.shadow;
+                    const shadowColor = hexToRgba(s.color || '#000000', parseFloat(s.opacity) || 0.5);
+                    const hOffset = (parseFloat(s.hOffset) || 0) * scaleFactor;
+                    const vOffset = (parseFloat(s.vOffset) || 0) * scaleFactor;
+                    const blur = (parseFloat(s.blur) || 5) * scaleFactor;
+                    const spread = (parseFloat(s.spread) || 0) * scaleFactor;
+                    buttonPreview.style.boxShadow = `${hOffset}px ${vOffset}px ${blur}px ${spread}px ${shadowColor}`;
+                } else {
+                    buttonPreview.style.boxShadow = 'none';
+                }
             }
 
             // Determine visibility
@@ -783,13 +789,13 @@ const spreadOutBtn = getElement('spread-out-btn');
             let buttonDurationForOverlay = getButtonEffectiveDuration(button, nodeVideoPreview.duration);
             if (buttonDurationForOverlay <= 0) buttonDurationForOverlay = 0.1;
             const shouldShow = (nodeVideoPreview.currentTime >= buttonStartTimeForOverlay && nodeVideoPreview.currentTime < buttonStartTimeForOverlay + buttonDurationForOverlay) || button.id === selectedButtonId;
-            
+
             // Set display and centering for text buttons
             const displayValue = button.linkType === 'embed' ? 'block' : 'flex';
             buttonPreview.style.display = shouldShow ? displayValue : 'none';
             if (displayValue === 'flex') {
-                 buttonPreview.style.alignItems = 'center';
-                 buttonPreview.style.justifyContent = 'center';
+                buttonPreview.style.alignItems = 'center';
+                buttonPreview.style.justifyContent = 'center';
             }
 
             // Apply animation
@@ -803,15 +809,15 @@ const spreadOutBtn = getElement('spread-out-btn');
             buttonPreview.addEventListener('mousedown', startButtonDrag);
             buttonPreview.addEventListener('touchstart', startButtonDrag, { passive: false });
 
-            ['tl','tr','bl','br'].forEach(pos => {
+            ['tl', 'tr', 'bl', 'br'].forEach(pos => {
                 const handle = document.createElement('div');
                 handle.className = `resize-handle ${pos}`;
                 handle.dataset.buttonId = button.id;
                 handle.addEventListener('mousedown', startResize);
-                handle.addEventListener('touchstart', startResize, { passive:false });
+                handle.addEventListener('touchstart', startResize, { passive: false });
                 buttonPreview.appendChild(handle);
             });
-            
+
             nodeVideoButtonsOverlay.appendChild(buttonPreview);
             // --- End of buttonPreview logic ---
         });
@@ -948,7 +954,7 @@ const spreadOutBtn = getElement('spread-out-btn');
         };
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup', onEnd);
-        document.addEventListener('touchmove', onMove, { passive:false });
+        document.addEventListener('touchmove', onMove, { passive: false });
         document.addEventListener('touchend', onEnd);
     };
 
@@ -978,7 +984,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                         const outClass = getOutAnimClass(buttonData);
                         if (outClass && !btn.classList.contains(outClass)) {
                             // remove any in-animation classes to avoid transform conflicts
-                            btn.classList.remove('anim-slide-left','anim-slide-right','anim-slide-top','anim-slide-bottom','anim-fade','anim-fade-in');
+                            btn.classList.remove('anim-slide-left', 'anim-slide-right', 'anim-slide-top', 'anim-slide-bottom', 'anim-fade', 'anim-fade-in');
                             btn.classList.add(outClass);
                             btn.style.animationDuration = `${animDurationSec}s`;
                             // force reflow
@@ -994,7 +1000,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                     if (buttonDurationForOverlay <= 0) buttonDurationForOverlay = 0.1;
                     const keepSelectedVisible = nodeVideoPreview.paused;
                     const shouldShow = (nodeVideoPreview.currentTime >= buttonStartTimeForOverlay && nodeVideoPreview.currentTime < buttonStartTimeForOverlay + buttonDurationForOverlay) || (keepSelectedVisible && buttonData.id === selectedButtonId);
-                    
+
                     // Set display and centering for text buttons
                     const displayValue = buttonData.linkType === 'embed' ? 'block' : 'flex';
                     displayState = shouldShow ? displayValue : 'none';
@@ -1034,7 +1040,7 @@ const spreadOutBtn = getElement('spread-out-btn');
         });
         if (viewId === 'login') {
             const loginView = getElement('login-screen');
-            if(loginView) {
+            if (loginView) {
                 console.log('Found login view, adding active class');
                 loginView.classList.add('active');
                 loginView.style.display = 'block';
@@ -1044,7 +1050,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                 console.error('Login view not found');
             }
         } else if (viewId === 'dashboard') {
-            if(dashboardView) {
+            if (dashboardView) {
                 console.log('Found dashboard view, adding active class, ID:', dashboardView.id, 'Class:', dashboardView.className);
                 dashboardView.classList.add('active');
                 dashboardView.style.display = 'block';
@@ -1053,7 +1059,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                 console.log('Dashboard active class added, style set to block, visibility: visible, opacity: 1');
                 // Double-check login screen is hidden
                 const loginView = getElement('login-screen');
-                if(loginView) {
+                if (loginView) {
                     loginView.classList.remove('active');
                     loginView.style.display = 'none';
                     loginView.style.visibility = 'hidden';
@@ -1065,8 +1071,8 @@ const spreadOutBtn = getElement('spread-out-btn');
             }
             currentProject = null;
             selectedNodeId = null;
-            if(duplicateNodeBtn) duplicateNodeBtn.disabled = true;
-            if(deleteNodeBtn) deleteNodeBtn.disabled = true;
+            if (duplicateNodeBtn) duplicateNodeBtn.disabled = true;
+            if (deleteNodeBtn) deleteNodeBtn.disabled = true;
             try {
                 closeNodeEditor();
             } catch (e) {
@@ -1074,7 +1080,7 @@ const spreadOutBtn = getElement('spread-out-btn');
             }
         } else if (viewId === 'editor') {
             const editorView = getElement('editor');
-            if(editorView) {
+            if (editorView) {
                 console.log('Found editor view, adding active class');
                 editorView.classList.add('active');
                 editorView.style.display = 'block';
@@ -1189,8 +1195,8 @@ const spreadOutBtn = getElement('spread-out-btn');
         if (!youtubeVideoId) {
             videoElement.onloadedmetadata = () => {
 
-                renderButtons(); 
-                handlePlayheadUpdate(); 
+                renderButtons();
+                handlePlayheadUpdate();
             };
             videoElement.onerror = (e) => {
                 console.error('Error loading video:', e, 'URL:', url);
@@ -1209,15 +1215,15 @@ const spreadOutBtn = getElement('spread-out-btn');
     const updateEndActionVisibility = () => {
         if (!nodeEndActionSelect) return;
         const val = nodeEndActionSelect.value;
-        if(nodeEndTargetNodeSelect) nodeEndTargetNodeSelect.style.display = val === 'node' ? 'block' : 'none';
-        if(nodeEndTargetUrlInput) nodeEndTargetUrlInput.style.display = val === 'url' ? 'block' : 'none';
+        if (nodeEndTargetNodeSelect) nodeEndTargetNodeSelect.style.display = val === 'node' ? 'block' : 'none';
+        if (nodeEndTargetUrlInput) nodeEndTargetUrlInput.style.display = val === 'url' ? 'block' : 'none';
     };
 
     const refreshTargetNodeDropdown = () => {
         if (!nodeEndTargetNodeSelect || !currentProject || !currentProject.videos) return;
         nodeEndTargetNodeSelect.innerHTML = '';
         currentProject.videos.forEach(v => {
-            if (v.id === selectedNodeId) return; 
+            if (v.id === selectedNodeId) return;
             const opt = document.createElement('option');
             opt.value = v.id;
             opt.textContent = v.name;
@@ -1230,25 +1236,25 @@ const spreadOutBtn = getElement('spread-out-btn');
         selectedNodeId = nodeId;
         const node = currentProject.videos.find(v => v.id === nodeId);
         if (!node) return;
-        if(nodeNameInput) nodeNameInput.value = node.name;
-        if(nodeUrlInput) nodeUrlInput.value = node.url || '';
+        if (nodeNameInput) nodeNameInput.value = node.name;
+        if (nodeUrlInput) nodeUrlInput.value = node.url || '';
         if (node.url !== currentNodeEditorURL) {
             loadVideo(nodeVideoPreview, node.url, { autoplay });
         }
-        renderButtons(); 
-        if(nodeEditorPanel) nodeEditorPanel.classList.remove('hidden');
+        renderButtons();
+        if (nodeEditorPanel) nodeEditorPanel.classList.remove('hidden');
         // Refresh import dropdown for this node
         if (importButtonsSelect) {
             importButtonsSelect.innerHTML = '<option value="">Import Buttons From Node...</option>';
             if (currentProject) {
                 currentProject.videos
-                  .filter(v => v.id !== selectedNodeId && v.buttons && v.buttons.length > 0)
-                  .forEach(v => {
-                      const opt = document.createElement('option');
-                      opt.value = v.id;
-                      opt.textContent = v.name;
-                      importButtonsSelect.appendChild(opt);
-                  });
+                    .filter(v => v.id !== selectedNodeId && v.buttons && v.buttons.length > 0)
+                    .forEach(v => {
+                        const opt = document.createElement('option');
+                        opt.value = v.id;
+                        opt.textContent = v.name;
+                        importButtonsSelect.appendChild(opt);
+                    });
             }
         }
 
@@ -1269,7 +1275,7 @@ const spreadOutBtn = getElement('spread-out-btn');
         }
 
         if (nodeEndActionSelect) {
-            refreshTargetNodeDropdown(); 
+            refreshTargetNodeDropdown();
             if (node.endAction) {
                 nodeEndActionSelect.value = node.endAction.type || 'none';
                 refreshTargetNodeDropdown();
@@ -1295,22 +1301,22 @@ const spreadOutBtn = getElement('spread-out-btn');
 
     const closeNodeEditor = () => {
         currentNodeEditorURL = null;
-        if(nodeEditorPanel) nodeEditorPanel.classList.add('hidden');
+        if (nodeEditorPanel) nodeEditorPanel.classList.add('hidden');
         if (hlsInstance) {
             hlsInstance.destroy();
             hlsInstance = null;
         }
-        if(nodeVideoPreview) nodeVideoPreview.src = ''; 
+        if (nodeVideoPreview) nodeVideoPreview.src = '';
         selectedNodeId = null;
-        if(duplicateNodeBtn) duplicateNodeBtn.disabled = true;
-        if(deleteNodeBtn) deleteNodeBtn.disabled = true;
+        if (duplicateNodeBtn) duplicateNodeBtn.disabled = true;
+        if (deleteNodeBtn) deleteNodeBtn.disabled = true;
     };
 
     const setupEventListeners = () => {
         // Auth Listeners
-        if(loginForm) loginForm.addEventListener('submit', handleLogin);
-        if(signOutBtn) signOutBtn.addEventListener('click', signOut);
-        if(editorSignOutBtn) editorSignOutBtn.addEventListener('click', signOut);
+        if (loginForm) loginForm.addEventListener('submit', handleLogin);
+        if (signOutBtn) signOutBtn.addEventListener('click', signOut);
+        if (editorSignOutBtn) editorSignOutBtn.addEventListener('click', signOut);
 
         // Re-render buttons on window resize to adjust for scaling
         window.addEventListener('resize', renderButtons);
@@ -1325,7 +1331,7 @@ const spreadOutBtn = getElement('spread-out-btn');
             renderProjects();
             navigateTo('editor', project.id);
         });
-        backToDashboardBtn.addEventListener('click', () => { if (currentProject) saveProjectToSupabase(currentProject); navigateTo('dashboard');});
+        backToDashboardBtn.addEventListener('click', () => { if (currentProject) saveProjectToSupabase(currentProject); navigateTo('dashboard'); });
         addVideoBtn.addEventListener('click', () => {
             const name = prompt('Enter node name:');
             if (!name || !currentProject) return;
@@ -1363,15 +1369,17 @@ const spreadOutBtn = getElement('spread-out-btn');
             const node = currentProject.videos.find(v => v.id === selectedNodeId);
             if (!node) return;
             pushToUndoStack(); // Save state before adding new button
-            const newButton = { id: `btn-${Date.now()}`, text: 'New Button', time: nodeVideoPreview.currentTime, duration: 5, linkType: 'node', target: '', embedCode: '', position: { x: '40%', y: '80%' }, style: { width: '15%', height: '10%', backgroundColor: '#007bff', color: '#ffffff', fontSize: '16px', padding: '10px 20px', border: 'none', borderRadius: '5px', lineHeight: 1.5 }, animation: { type:'none', direction:'left', duration:'1' }, shadow: {
-                        enabled: false,
-                        color: '#000000',
-                        opacity: 0.5,
-                        hOffset: 2, // px
-                        vOffset: 2, // px
-                        blur: 4,    // px
-                        spread: 0   // px
-                    }, containsImage: false, imageUrl: '' };
+            const newButton = {
+                id: `btn-${Date.now()}`, text: 'New Button', time: nodeVideoPreview.currentTime, duration: 5, linkType: 'node', target: '', embedCode: '', position: { x: '40%', y: '80%' }, style: { width: '15%', height: '10%', backgroundColor: '#007bff', color: '#ffffff', fontSize: '16px', padding: '10px 20px', border: 'none', borderRadius: '5px', lineHeight: 1.5 }, animation: { type: 'none', direction: 'left', duration: '1' }, shadow: {
+                    enabled: false,
+                    color: '#000000',
+                    opacity: 0.5,
+                    hOffset: 2, // px
+                    vOffset: 2, // px
+                    blur: 4,    // px
+                    spread: 0   // px
+                }, containsImage: false, imageUrl: ''
+            };
             if (!node.buttons) node.buttons = [];
             node.buttons.push(newButton);
             if (currentProject) saveProjectToSupabase(currentProject);
@@ -1392,7 +1400,7 @@ const spreadOutBtn = getElement('spread-out-btn');
                     opt.textContent = v.name;
                     importButtonsSelect.appendChild(opt);
                 });
-            };
+        };
 
         if (importButtonsSelect) {
             importButtonsSelect.addEventListener('change', () => {
@@ -1487,7 +1495,9 @@ const spreadOutBtn = getElement('spread-out-btn');
             buttonShadowVOffset,
             buttonShadowBlur,
             buttonShadowSpread,
-            buttonLineSpacingInput
+            buttonLineSpacingInput,
+            document.getElementById('contains-image-checkbox'),
+            document.getElementById('button-image-url')
         ];
 
         styleInputs.forEach(el => {
@@ -1500,7 +1510,7 @@ const spreadOutBtn = getElement('spread-out-btn');
         });
 
         if (animateOutCheckbox && animateOutOptions) { // Ensure animate out options visibility is correct
-             animateOutOptions.style.display = animateOutCheckbox.checked ? 'block' : 'none';
+            animateOutOptions.style.display = animateOutCheckbox.checked ? 'block' : 'none';
         }
 
         if (buttonShadowEnable && shadowOptionsContainer) {
@@ -1610,7 +1620,7 @@ const spreadOutBtn = getElement('spread-out-btn');
 
                 const button = node.buttons.find(b => b.id === selectedButtonId);
                 if (!button) return;
-                
+
                 if (buttonAtEndCheckbox.checked) {
                     const vidDur = nodeVideoPreview.duration || 0;
                     button.time = vidDur > 0 ? Math.max(0, vidDur - 0.1) : 0;
@@ -1656,16 +1666,16 @@ const spreadOutBtn = getElement('spread-out-btn');
 
         if (nodeVideoPreview) nodeVideoPreview.addEventListener('timeupdate', handlePlayheadUpdate);
         if (projectSearchInput) projectSearchInput.addEventListener('input', e => renderProjects(e.target.value));
-        if (projectSortSelect) projectSortSelect.addEventListener('change', ()=>renderProjects(projectSearchInput.value));
+        if (projectSortSelect) projectSortSelect.addEventListener('change', () => renderProjects(projectSearchInput.value));
 
-        if(duplicateNodeBtn) duplicateNodeBtn.addEventListener('click', duplicateSelectedNode);
-        if(deleteNodeBtn) deleteNodeBtn.addEventListener('click', deleteSelectedNode);
+        if (duplicateNodeBtn) duplicateNodeBtn.addEventListener('click', duplicateSelectedNode);
+        if (deleteNodeBtn) deleteNodeBtn.addEventListener('click', deleteSelectedNode);
 
-        if(signOutBtn) {
+        if (signOutBtn) {
             signOutBtn.addEventListener('click', signOut);
         }
 
-        if(themeToggle) {
+        if (themeToggle) {
             themeToggle.addEventListener('change', () => {
                 document.body.classList.toggle('dark-mode', themeToggle.checked);
                 localStorage.setItem('theme', themeToggle.checked ? 'dark' : 'light');
@@ -1692,12 +1702,12 @@ const spreadOutBtn = getElement('spread-out-btn');
         }
 
         // Node End Action listeners
-        const nodeEndActionSelect = getElement('node-end-action');
-        const nodeEndTargetNodeSelect = getElement('node-end-target-node');
-        const nodeEndTargetUrlInput = getElement('node-end-target-url');
+        const nodeEndActionSelect = document.getElementById('node-end-action');
+        const nodeEndTargetNodeSelect = document.getElementById('node-end-target-node');
+        const nodeEndTargetUrlInput = document.getElementById('node-end-target-url');
 
         if (nodeEndActionSelect) {
-            nodeEndActionSelect.addEventListener('change', function() {
+            nodeEndActionSelect.addEventListener('change', function () {
                 if (!selectedNodeId) return;
                 const node = currentProject.videos.find(v => v.id === selectedNodeId);
                 if (!node) return;
@@ -1719,7 +1729,7 @@ const spreadOutBtn = getElement('spread-out-btn');
             });
         }
         if (nodeEndTargetNodeSelect) {
-            nodeEndTargetNodeSelect.addEventListener('change', function() {
+            nodeEndTargetNodeSelect.addEventListener('change', function () {
                 if (!selectedNodeId) return;
                 const node = currentProject.videos.find(v => v.id === selectedNodeId);
                 if (!node || !node.endAction || node.endAction.type !== 'node') return;
@@ -1756,6 +1766,10 @@ const spreadOutBtn = getElement('spread-out-btn');
         if (!button.animateOut) button.animateOut = { enabled: false, delay: 5 };
         if (!button.containsImage) button.containsImage = false;
         if (!button.imageUrl) button.imageUrl = '';
+
+        // Get Image Inputs
+        const containsImageCheckbox = document.getElementById('contains-image-checkbox');
+        const imageUrlInput = document.getElementById('button-image-url');
 
         // Define style reference early so subsequent code can use it safely
         const style = button.style;
@@ -1856,7 +1870,7 @@ const spreadOutBtn = getElement('spread-out-btn');
             const y = button.position ? parseFloat(button.position.y) || 80 : 80;
             const width = button.style.width ? parseFloat(button.style.width) : 20;
             const height = button.style.height ? parseFloat(button.style.height) : 10;
-            
+
             button.position.x = `${Math.max(0, Math.min(x, 90))}%`; // Ensure within bounds
             button.position.y = `${Math.max(0, Math.min(y, 90))}%`; // Ensure within bounds
             button.style.width = `${Math.max(10, Math.min(width, 50))}%`; // Constrain width
@@ -1864,7 +1878,7 @@ const spreadOutBtn = getElement('spread-out-btn');
         }
 
         // Update style properties without affecting dimensions
-        
+
 
         // Only update the style property that was changed
         if (!e || e.target === document.getElementById('button-color-input')) {
@@ -1874,12 +1888,12 @@ const spreadOutBtn = getElement('spread-out-btn');
             style.backgroundColor = document.getElementById('button-bgcolor-input').value || '#007bff';
         }
         if (!e || e.target === document.getElementById('button-opacity-slider') || e.target === document.getElementById('button-bgcolor-input')) {
-             const baseHex = document.getElementById('button-bgcolor-input').value || '#007bff';
-             const alpha = parseFloat(buttonOpacitySlider.value);
-             const rgba = hexToRgba(baseHex, alpha);
-             style.backgroundColor = rgba;
-         }
-         if (!e || e.target === document.getElementById('button-font-family-input')) {
+            const baseHex = document.getElementById('button-bgcolor-input').value || '#007bff';
+            const alpha = parseFloat(buttonOpacitySlider.value);
+            const rgba = hexToRgba(baseHex, alpha);
+            style.backgroundColor = rgba;
+        }
+        if (!e || e.target === document.getElementById('button-font-family-input')) {
             style.fontFamily = document.getElementById('button-font-family-input').value || 'Arial, sans-serif';
         }
         if (!e || e.target === document.getElementById('button-font-size-input')) {
@@ -1901,7 +1915,19 @@ const spreadOutBtn = getElement('spread-out-btn');
         if (!e || e.target === buttonLineSpacingInput) {
             style.lineHeight = buttonLineSpacingInput.value;
         }
+        // Update Image Properties
+        if (containsImageCheckbox && imageUrlInput) {
+            button.containsImage = containsImageCheckbox.checked;
+            button.imageUrl = imageUrlInput.value || '';
 
+            // Toggle visibility immediately for better UX
+            const imgUrlContainer = document.getElementById('image-url-container');
+            if (imgUrlContainer) {
+                imgUrlContainer.style.display = button.containsImage ? 'block' : 'none';
+            }
+        }
+
+        // Ensure display properties are set for proper rendering
         // Ensure display properties are set for proper rendering
         style.display = 'flex';
         style.alignItems = 'center';
@@ -1934,7 +1960,7 @@ const spreadOutBtn = getElement('spread-out-btn');
         selectedButtonId = buttonId;
         buttonEditorPanel.classList.remove('hidden');
         if (animateOutCheckbox && animateOutOptions) { // Ensure animate out options visibility is correct
-             animateOutOptions.style.display = animateOutCheckbox.checked ? 'block' : 'none';
+            animateOutOptions.style.display = animateOutCheckbox.checked ? 'block' : 'none';
         }
 
         // Update button inputs
@@ -1953,7 +1979,7 @@ const spreadOutBtn = getElement('spread-out-btn');
             currentProject.videos.forEach(videoNode => {
                 const option = document.createElement('option');
                 option.value = videoNode.id;
-                option.textContent = videoNode.name || `Node (${videoNode.id.substring(0,6)}...)`; // Fallback with shortened ID
+                option.textContent = videoNode.name || `Node (${videoNode.id.substring(0, 6)}...)`; // Fallback with shortened ID
                 buttonTargetNode.appendChild(option);
             });
         }
@@ -1963,19 +1989,19 @@ const spreadOutBtn = getElement('spread-out-btn');
         // Then set values based on link type
         buttonTargetNode.value = button.linkType === 'node' ? (button.target || '') : '';
         buttonTargetUrl.value = button.linkType === 'url' ? (button.target || '') : '';
-        if(buttonEmbedCode) buttonEmbedCode.value = button.linkType === 'embed' ? (button.embedCode || '') : '';
+        if (buttonEmbedCode) buttonEmbedCode.value = button.linkType === 'embed' ? (button.embedCode || '') : '';
 
         // Then manage visibility
-        if(nodeLinkContainer) nodeLinkContainer.style.display = button.linkType === 'node' ? 'block' : 'none';
-        if(urlLinkContainer) urlLinkContainer.style.display = button.linkType === 'url' ? 'block' : 'none';
-        if(embedCodeContainer) embedCodeContainer.style.display = button.linkType === 'embed' ? 'block' : 'none';
+        if (nodeLinkContainer) nodeLinkContainer.style.display = button.linkType === 'node' ? 'block' : 'none';
+        if (urlLinkContainer) urlLinkContainer.style.display = button.linkType === 'url' ? 'block' : 'none';
+        if (embedCodeContainer) embedCodeContainer.style.display = button.linkType === 'embed' ? 'block' : 'none';
 
-        const containsImageCheckbox = getElement('contains-image-checkbox');
-        const imageUrlContainer = getElement('image-url-container');
+        const containsImageCheckbox = document.getElementById('contains-image-checkbox');
+        const imageUrlContainer = document.getElementById('image-url-container');
         if (containsImageCheckbox && imageUrlContainer) {
             containsImageCheckbox.checked = button.containsImage || false;
             imageUrlContainer.style.display = containsImageCheckbox.checked ? 'block' : 'none';
-            const imageUrlInput = getElement('button-image-url');
+            const imageUrlInput = document.getElementById('button-image-url');
             if (imageUrlInput) {
                 imageUrlInput.value = button.imageUrl || '';
             }
@@ -1986,35 +2012,35 @@ const spreadOutBtn = getElement('spread-out-btn');
         const y = button.position ? parseFloat(button.position.y) || 80 : 80;
         const width = button.style.width ? parseFloat(button.style.width) : 20;
         const height = button.style.height ? parseFloat(button.style.height) : 10;
-        
+
         buttonPosXInput.value = (x / 100 * containerRect.width).toFixed(1);
         buttonPosYInput.value = (y / 100 * containerRect.height).toFixed(1);
         buttonWidthInput.value = (width / 100 * containerRect.width).toFixed(1);
         buttonHeightInput.value = (height / 100 * containerRect.height).toFixed(1);
-        
+
         // Update style inputs
         document.getElementById('button-color-input').value = button.style.color || '#ffffff';
         document.getElementById('button-bgcolor-input').value = button.style.backgroundColor || '#007bff';
-         if (buttonOpacitySlider && buttonOpacityValue) {
-             buttonOpacitySlider.value = button.style.opacity !== undefined ? button.style.opacity : 1;
-             buttonOpacityValue.textContent = buttonOpacitySlider.value;
-         }
+        if (buttonOpacitySlider && buttonOpacityValue) {
+            buttonOpacitySlider.value = button.style.opacity !== undefined ? button.style.opacity : 1;
+            buttonOpacityValue.textContent = buttonOpacitySlider.value;
+        }
         document.getElementById('button-font-family-input').value = button.style.fontFamily || 'Arial, sans-serif';
-        document.getElementById('button-font-size-input').value = button.style.fontSize ? 
+        document.getElementById('button-font-size-input').value = button.style.fontSize ?
             parseInt(button.style.fontSize) : 16;
-        document.getElementById('button-padding-input').value = button.style.padding ? 
+        document.getElementById('button-padding-input').value = button.style.padding ?
             parseInt(button.style.padding) : 10;
         const currentBorderRadius = button.style.borderRadius ? parseInt(button.style.borderRadius) : 5;
         if (buttonCornerRadiusSlider) buttonCornerRadiusSlider.value = currentBorderRadius;
         if (buttonCornerRadiusValue) buttonCornerRadiusValue.textContent = `${currentBorderRadius}px`;
         document.getElementById('button-border-input').value = button.style.border || 'none';
         buttonLineSpacingInput.value = button.style.lineHeight || 1.5;
-        
+
         // Update animation inputs
         animationType.value = button.animation.type || 'none';
         animationDirection.value = button.animation.direction || 'left';
         animationDuration.value = button.animation.duration || '1';
-        
+
         // Update animate out inputs
         const animateOutDelay = document.getElementById('animate-out-delay');
 
@@ -2038,7 +2064,7 @@ const spreadOutBtn = getElement('spread-out-btn');
         if (buttonShadowColor) buttonShadowColor.value = shadow.color || '#000000';
 
         // Update shadow slider values and their display spans
-        if (buttonShadowOpacity && buttonShadowOpacityValue) { 
+        if (buttonShadowOpacity && buttonShadowOpacityValue) {
             buttonShadowOpacity.value = shadow.opacity !== undefined ? shadow.opacity : 0.5;
             buttonShadowOpacityValue.textContent = buttonShadowOpacity.value;
         }
@@ -2064,60 +2090,60 @@ const spreadOutBtn = getElement('spread-out-btn');
         }
 
         // Toggle direction group based on animation type
-        document.getElementById('anim-direction-group').style.display = 
+        document.getElementById('anim-direction-group').style.display =
             (button.animation.type === 'slide') ? 'block' : 'none';
-            
+
         // Show/hide URL input based on link type
-        document.getElementById('node-link-container').style.display = 
+        document.getElementById('node-link-container').style.display =
             (buttonLinkType.value === 'node') ? 'block' : 'none';
-        document.getElementById('url-link-container').style.display = 
+        document.getElementById('url-link-container').style.display =
             (buttonLinkType.value === 'url') ? 'block' : 'none';
-            
+
         // Update the button preview
         renderButtons();
     };
 
-const duplicateSelectedButton = () => {
-    if (!selectedNodeId || !selectedButtonId || !currentProject) {
-        console.warn('No button or node selected for duplication.');
-        return;
-    }
-    pushToUndoStack(); // Save state before button duplication
+    const duplicateSelectedButton = () => {
+        if (!selectedNodeId || !selectedButtonId || !currentProject) {
+            console.warn('No button or node selected for duplication.');
+            return;
+        }
+        pushToUndoStack(); // Save state before button duplication
 
-    const node = currentProject.videos.find(v => v.id === selectedNodeId);
-    if (!node || !node.buttons) {
-        console.error('Could not find the current node or its buttons array.');
-        return;
-    }
+        const node = currentProject.videos.find(v => v.id === selectedNodeId);
+        if (!node || !node.buttons) {
+            console.error('Could not find the current node or its buttons array.');
+            return;
+        }
 
-    const buttonToDuplicate = node.buttons.find(b => b.id === selectedButtonId);
-    if (!buttonToDuplicate) {
-        console.error('Could not find the selected button to duplicate.');
-        return;
-    }
+        const buttonToDuplicate = node.buttons.find(b => b.id === selectedButtonId);
+        if (!buttonToDuplicate) {
+            console.error('Could not find the selected button to duplicate.');
+            return;
+        }
 
-    const newButton = JSON.parse(JSON.stringify(buttonToDuplicate));
-    newButton.id = `button-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    newButton.text = `${buttonToDuplicate.text || 'Button'} (Copy)`;
+        const newButton = JSON.parse(JSON.stringify(buttonToDuplicate));
+        newButton.id = `button-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        newButton.text = `${buttonToDuplicate.text || 'Button'} (Copy)`;
 
-    if (!newButton.position) newButton.position = { x: '40%', y: '80%' };
-    if (!newButton.style) newButton.style = {};
+        if (!newButton.position) newButton.position = { x: '40%', y: '80%' };
+        if (!newButton.style) newButton.style = {};
 
-    let currentX = parseFloat(newButton.position.x) || 0;
-    let currentY = parseFloat(newButton.position.y) || 0;
-    newButton.position.x = `${(currentX + 2)}%`;
-    newButton.position.y = `${(currentY + 2)}%`;
+        let currentX = parseFloat(newButton.position.x) || 0;
+        let currentY = parseFloat(newButton.position.y) || 0;
+        newButton.position.x = `${(currentX + 2)}%`;
+        newButton.position.y = `${(currentY + 2)}%`;
 
-    node.buttons.push(newButton);
-    if (currentProject) saveProjectToSupabase(currentProject);
-    renderButtons(); 
-    selectButton(newButton.id);
-    
-    const newButtonListItem = document.querySelector(`#buttons-list .button-item[data-button-id="${newButton.id}"]`);
-    if (newButtonListItem) {
-        newButtonListItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-};
+        node.buttons.push(newButton);
+        if (currentProject) saveProjectToSupabase(currentProject);
+        renderButtons();
+        selectButton(newButton.id);
+
+        const newButtonListItem = document.querySelector(`#buttons-list .button-item[data-button-id="${newButton.id}"]`);
+        if (newButtonListItem) {
+            newButtonListItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    };
 
     const setupNodeDragging = () => {
         let draggedNode = null, offsetX, offsetY;
@@ -2157,144 +2183,144 @@ const duplicateSelectedButton = () => {
     };
 
     let tempPath = null;
-    let dragListeners={move:null,up:null};
-    let connectionDragSrc=null;
-const startConnectionDrag=(e)=>{
+    let dragListeners = { move: null, up: null };
+    let connectionDragSrc = null;
+    const startConnectionDrag = (e) => {
         e.stopPropagation();
-        const srcId=e.target.dataset.nodeSource;
-        const startRect=e.target.getBoundingClientRect();
-        const svgRect=connectionsSvg.getBoundingClientRect();
-        const startX=startRect.left+startRect.width/2 - svgRect.left;
-        const startY=startRect.top+startRect.height/2 - svgRect.top;
-        connectionDragSrc=srcId;
-        tempPath=document.createElementNS('http://www.w3.org/2000/svg','path');
-        tempPath.setAttribute('d',`M ${startX} ${startY} C ${startX+50} ${startY}, ${startX+50} ${startY}, ${startX+50} ${startY}`);
-        tempPath.setAttribute('fill','none');
-        tempPath.setAttribute('stroke','#03a9f4');
-        tempPath.setAttribute('stroke-width','2');
-        tempPath.dataset.src=srcId;
+        const srcId = e.target.dataset.nodeSource;
+        const startRect = e.target.getBoundingClientRect();
+        const svgRect = connectionsSvg.getBoundingClientRect();
+        const startX = startRect.left + startRect.width / 2 - svgRect.left;
+        const startY = startRect.top + startRect.height / 2 - svgRect.top;
+        connectionDragSrc = srcId;
+        tempPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        tempPath.setAttribute('d', `M ${startX} ${startY} C ${startX + 50} ${startY}, ${startX + 50} ${startY}, ${startX + 50} ${startY}`);
+        tempPath.setAttribute('fill', 'none');
+        tempPath.setAttribute('stroke', '#03a9f4');
+        tempPath.setAttribute('stroke-width', '2');
+        tempPath.dataset.src = srcId;
         connectionsSvg.appendChild(tempPath);
-        const onMove=(ev)=>{
-            if(!tempPath) return;
-            const x=ev.clientX - svgRect.left;
-            const y=ev.clientY - svgRect.top;
-            const midX=(startX+x)/2;
-            tempPath.setAttribute('d',`M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${y}, ${x} ${y}`);
+        const onMove = (ev) => {
+            if (!tempPath) return;
+            const x = ev.clientX - svgRect.left;
+            const y = ev.clientY - svgRect.top;
+            const midX = (startX + x) / 2;
+            tempPath.setAttribute('d', `M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${y}, ${x} ${y}`);
         };
-        const onUp=(ev)=>{
+        const onUp = (ev) => {
             // determine drop target
-            const dropEl=document.elementFromPoint(ev.clientX,ev.clientY);
-            if(dropEl && dropEl.classList.contains('node-input')){
-                const dstId=dropEl.dataset.nodeTarget;
-                if(connectionDragSrc && dstId && connectionDragSrc!==dstId){
+            const dropEl = document.elementFromPoint(ev.clientX, ev.clientY);
+            if (dropEl && dropEl.classList.contains('node-input')) {
+                const dstId = dropEl.dataset.nodeTarget;
+                if (connectionDragSrc && dstId && connectionDragSrc !== dstId) {
                     pushToUndoStack(); // Save state before adding/modifying connection
-                    if(!currentProject.connections) currentProject.connections=[];
-                    currentProject.connections.push({from:connectionDragSrc,to:dstId});
+                    if (!currentProject.connections) currentProject.connections = [];
+                    currentProject.connections.push({ from: connectionDragSrc, to: dstId });
                     if (currentProject) saveProjectToSupabase(currentProject);
                 }
             }
             renderConnections();
-            document.removeEventListener('mousemove',dragListeners.move);
-            document.removeEventListener('mouseup',dragListeners.up);
-            if(tempPath){tempPath.remove(); tempPath=null;}
-            connectionDragSrc=null;
+            document.removeEventListener('mousemove', dragListeners.move);
+            document.removeEventListener('mouseup', dragListeners.up);
+            if (tempPath) { tempPath.remove(); tempPath = null; }
+            connectionDragSrc = null;
         };
-        dragListeners={move:onMove,up:onUp};
-        document.addEventListener('mousemove',onMove);
-        document.addEventListener('mouseup',onUp);
+        dragListeners = { move: onMove, up: onUp };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
     };
 
-const finishConnectionDrag = (e) => {
-    const dstNodeElement = e.target.closest('.video-node .node-input'); // Target must be an input dot
+    const finishConnectionDrag = (e) => {
+        const dstNodeElement = e.target.closest('.video-node .node-input'); // Target must be an input dot
 
-    // connectionDragSrc is set when drag starts from an output dot.
-    // tempPath is the visual line.
-    // If not dragging from an output, or no valid target, or no project, abort.
-    if (!dstNodeElement || !connectionDragSrc || !currentProject) {
-        if (tempPath) { // Clean up visual line if it exists
+        // connectionDragSrc is set when drag starts from an output dot.
+        // tempPath is the visual line.
+        // If not dragging from an output, or no valid target, or no project, abort.
+        if (!dstNodeElement || !connectionDragSrc || !currentProject) {
+            if (tempPath) { // Clean up visual line if it exists
+                tempPath.remove();
+                tempPath = null;
+            }
+            // connectionDragSrc is typically cleared by startConnectionDrag's onUp handler.
+            return;
+        }
+
+        const dstId = dstNodeElement.dataset.nodeTarget; // ID of the node this input dot belongs to
+
+        // Proceed if we have a source, a destination, and they are different.
+        if (dstId && connectionDragSrc !== dstId) {
+            const alreadyExists = currentProject.connections.some(
+                conn => conn.from === connectionDragSrc && conn.to === dstId
+            );
+
+            if (alreadyExists) {
+                console.warn(`Connection from ${connectionDragSrc} to ${dstId} already exists.`);
+            } else {
+                pushToUndoStack(); // Save state before adding the new connection
+
+                if (!currentProject.connections) {
+                    currentProject.connections = [];
+                }
+                currentProject.connections.push({ from: connectionDragSrc, to: dstId });
+
+                const sourceNode = currentProject.videos.find(v => v.id === connectionDragSrc);
+                if (sourceNode) {
+                    sourceNode.endAction = {
+                        type: 'node',
+                        target: dstId,
+                        targetUrl: '' // Clear targetUrl when linking to another node
+                    };
+
+                    if (selectedNodeId === connectionDragSrc) { // Update editor panel if source node is selected
+                        nodeEndActionSelect.value = 'node';
+                        refreshTargetNodeDropdown();
+                        nodeEndTargetNodeSelect.value = dstId;
+                        nodeEndTargetUrlInput.value = ''; // Clear URL input in panel
+                        updateEndActionVisibility();
+                    }
+                }
+                if (currentProject) saveProjectToSupabase(currentProject); // Persist changes
+            }
+            renderConnections(); // Update visuals
+        }
+
+        // Final cleanup: tempPath (visual line) should be removed.
+        // This is also done in startConnectionDrag's onUp, acting as a safeguard here.
+        if (tempPath) {
             tempPath.remove();
             tempPath = null;
         }
-        // connectionDragSrc is typically cleared by startConnectionDrag's onUp handler.
-        return;
-    }
-
-    const dstId = dstNodeElement.dataset.nodeTarget; // ID of the node this input dot belongs to
-
-    // Proceed if we have a source, a destination, and they are different.
-    if (dstId && connectionDragSrc !== dstId) {
-        const alreadyExists = currentProject.connections.some(
-            conn => conn.from === connectionDragSrc && conn.to === dstId
-        );
-
-        if (alreadyExists) {
-            console.warn(`Connection from ${connectionDragSrc} to ${dstId} already exists.`);
-        } else {
-            pushToUndoStack(); // Save state before adding the new connection
-            
-            if (!currentProject.connections) {
-                currentProject.connections = [];
-            }
-            currentProject.connections.push({ from: connectionDragSrc, to: dstId });
-
-            const sourceNode = currentProject.videos.find(v => v.id === connectionDragSrc);
-            if (sourceNode) {
-                sourceNode.endAction = {
-                    type: 'node',
-                    target: dstId,
-                    targetUrl: '' // Clear targetUrl when linking to another node
-                };
-
-                if (selectedNodeId === connectionDragSrc) { // Update editor panel if source node is selected
-                    nodeEndActionSelect.value = 'node';
-                    refreshTargetNodeDropdown(); 
-                    nodeEndTargetNodeSelect.value = dstId;
-                    nodeEndTargetUrlInput.value = ''; // Clear URL input in panel
-                    updateEndActionVisibility();
-                }
-            }
-            if (currentProject) saveProjectToSupabase(currentProject); // Persist changes
-        }
-        renderConnections(); // Update visuals
-    }
-
-    // Final cleanup: tempPath (visual line) should be removed.
-    // This is also done in startConnectionDrag's onUp, acting as a safeguard here.
-    if (tempPath) {
-        tempPath.remove();
-        tempPath = null;
-    }
-    // connectionDragSrc is cleared by startConnectionDrag's onUp handler, so no need to clear here.
-};
-    const renderConnections=()=>{
-        connectionsSvg.innerHTML='';
-        if(!currentProject||!currentProject.connections) return;
-        currentProject.connections.forEach((conn,i)=>{
-            const fromEl=nodesContainer.querySelector(`.node-output[data-node-source="${conn.from}"]`);
-            const toEl=nodesContainer.querySelector(`.node-input[data-node-target="${conn.to}"]`);
-            if(!fromEl||!toEl) return;
-            const svgRect=connectionsSvg.getBoundingClientRect();
-            const fromRect=fromEl.getBoundingClientRect();
-            const toRect=toEl.getBoundingClientRect();
-            const x1=fromRect.left+fromRect.width/2 - svgRect.left;
-            const y1=fromRect.top+fromRect.height/2 - svgRect.top;
-            const x2=toRect.left+toRect.width/2 - svgRect.left;
-            const y2=toRect.top+toRect.height/2 - svgRect.top;
-            const midX=(x1+x2)/2;
-            const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+        // connectionDragSrc is cleared by startConnectionDrag's onUp handler, so no need to clear here.
+    };
+    const renderConnections = () => {
+        connectionsSvg.innerHTML = '';
+        if (!currentProject || !currentProject.connections) return;
+        currentProject.connections.forEach((conn, i) => {
+            const fromEl = nodesContainer.querySelector(`.node-output[data-node-source="${conn.from}"]`);
+            const toEl = nodesContainer.querySelector(`.node-input[data-node-target="${conn.to}"]`);
+            if (!fromEl || !toEl) return;
+            const svgRect = connectionsSvg.getBoundingClientRect();
+            const fromRect = fromEl.getBoundingClientRect();
+            const toRect = toEl.getBoundingClientRect();
+            const x1 = fromRect.left + fromRect.width / 2 - svgRect.left;
+            const y1 = fromRect.top + fromRect.height / 2 - svgRect.top;
+            const x2 = toRect.left + toRect.width / 2 - svgRect.left;
+            const y2 = toRect.top + toRect.height / 2 - svgRect.top;
+            const midX = (x1 + x2) / 2;
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             path.classList.add('connection');
-            path.setAttribute('pointer-events','stroke');
-            path.dataset.index=i;
-            path.setAttribute('d',`M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`);
-            path.setAttribute('fill','none');
-            path.setAttribute('stroke','#03a9f4');
-            path.setAttribute('stroke-width','6');
+            path.setAttribute('pointer-events', 'stroke');
+            path.dataset.index = i;
+            path.setAttribute('d', `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`);
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke', '#03a9f4');
+            path.setAttribute('stroke-width', '6');
             console.log('Attaching click listener to path:', path, 'for connection index:', i);
-            path.addEventListener('click',(event)=>{ // Added event parameter
+            path.addEventListener('click', (event) => { // Added event parameter
                 console.log('Connection path clicked!', event); // Log the event object
                 console.log('Clicked path data-index:', event.target.dataset.index);
-                if(confirm('Delete this connection?')){
-                    currentProject.connections.splice(i,1);
+                if (confirm('Delete this connection?')) {
+                    currentProject.connections.splice(i, 1);
                     if (currentProject) saveProjectToSupabase(currentProject);
                     renderConnections();
                 }
@@ -2313,13 +2339,13 @@ const finishConnectionDrag = (e) => {
                     const targetNodeExists = currentProject.videos.some(v => v.id === toNodeId);
                     if (!targetNodeExists) {
                         // console.warn(`Target node ${toNodeId} for end action of ${fromNodeId} not found. Skipping connection.`);
-                        return; 
+                        return;
                     }
 
                     const fromEl = nodesContainer.querySelector(`.node-output[data-node-source="${fromNodeId}"]`);
-                    if(!fromEl){console.log('No fromEl for end-action',fromNodeId);} 
+                    if (!fromEl) { console.log('No fromEl for end-action', fromNodeId); }
                     const toEl = nodesContainer.querySelector(`.node-input[data-node-target="${toNodeId}"]`);
-                    if(!toEl){console.log('No toEl for end-action',toNodeId);} 
+                    if (!toEl) { console.log('No toEl for end-action', toNodeId); }
 
                     if (!fromEl || !toEl) {
                         // console.warn(`Could not find connection points for ${fromNodeId} -> ${toNodeId}`);
@@ -2338,20 +2364,20 @@ const finishConnectionDrag = (e) => {
 
                     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                     path.classList.add('connection', 'end-action-connection');
-                    path.setAttribute('pointer-events','stroke');
+                    path.setAttribute('pointer-events', 'stroke');
                     path.dataset.from = fromNodeId;
                     path.dataset.to = toNodeId;
                     path.setAttribute('d', `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`);
                     path.setAttribute('fill', 'none');
                     path.setAttribute('stroke', '#03a9f4');
-                    path.setAttribute('stroke-width', '6'); 
+                    path.setAttribute('stroke-width', '6');
                     // Solid line
                     path.setAttribute('pointer-events', 'none'); // These lines are not interactive for now
-                    path.addEventListener('click', (e)=>{
+                    path.addEventListener('click', (e) => {
                         const src = e.target.dataset.from;
-                        if(confirm('Delete end-action link from this node?')){
-                            const srcNode = currentProject.videos.find(v=>v.id===src);
-                            if(srcNode && srcNode.endAction){
+                        if (confirm('Delete end-action link from this node?')) {
+                            const srcNode = currentProject.videos.find(v => v.id === src);
+                            if (srcNode && srcNode.endAction) {
                                 pushToUndoStack();
                                 srcNode.endAction = { type: 'none', target: null };
                                 if (currentProject) saveProjectToSupabase(currentProject);
@@ -2490,7 +2516,7 @@ const finishConnectionDrag = (e) => {
             console.error('No nodes or videos in project data', data);
             return;
         }
-        
+
         // Ensure editorContent is defined
         let editorContent = window.editorContent || document.querySelector('#nodes-container');
         if (!editorContent) {
@@ -2519,7 +2545,7 @@ const finishConnectionDrag = (e) => {
 
     const deleteSelectedNode = () => {
         if (!selectedNodeId || !currentProject) return;
-        
+
         const nodeName = currentProject.videos.find(v => v.id === selectedNodeId)?.name || 'the selected node';
         // Push to stack *before* confirm, but pop if cancelled
         pushToUndoStack(); // Save state before deleting node
@@ -2542,7 +2568,7 @@ const finishConnectionDrag = (e) => {
                 if (newStartNode) newStartNode.isStartNode = true;
             }
         }
-        
+
         // Update end actions of other nodes that might have pointed to the deleted node
         currentProject.videos.forEach(video => {
             if (video.endAction && video.endAction.type === 'node' && video.endAction.target === nodeToDeleteId) {
@@ -2554,8 +2580,8 @@ const finishConnectionDrag = (e) => {
             closeNodeEditor();
         } else {
             selectedNodeId = null; // Deselect
-            if(duplicateNodeBtn) duplicateNodeBtn.disabled = true;
-            if(deleteNodeBtn) deleteNodeBtn.disabled = true;
+            if (duplicateNodeBtn) duplicateNodeBtn.disabled = true;
+            if (deleteNodeBtn) deleteNodeBtn.disabled = true;
         }
 
         if (currentProject) saveProjectToSupabase(currentProject);
@@ -2576,12 +2602,12 @@ const finishConnectionDrag = (e) => {
         const newNode = deepCopy(originalNode); // Use deepCopy for safety
         newNode.id = generateId('node-');
         newNode.name = `${originalNode.name} Copy`;
-        
+
         const originalX = parseFloat(originalNode.x) || 0;
         const originalY = parseFloat(originalNode.y) || 0;
         newNode.x = `${originalX + 30}px`;
         newNode.y = `${originalY + 30}px`;
-        
+
         if (newNode.buttons && Array.isArray(newNode.buttons)) {
             newNode.buttons = newNode.buttons.map(button => ({
                 ...deepCopy(button),
@@ -2590,24 +2616,24 @@ const finishConnectionDrag = (e) => {
         }
 
         // If the original node was the start node, the new one shouldn't be.
-        newNode.isStartNode = false; 
-        
+        newNode.isStartNode = false;
+
         // Reset end action if it pointed to the original node itself (to avoid self-loop on duplicate)
         // This logic might need refinement if we want duplicates to point to same external URLs or other nodes.
         // For now, if it pointed to itself, the copy points to nothing.
         if (newNode.endAction && newNode.endAction.type === 'node' && newNode.endAction.target === originalNode.id) {
-            newNode.endAction.target = null; 
+            newNode.endAction.target = null;
         }
 
         currentProject.videos.push(newNode);
         if (currentProject) saveProjectToSupabase(currentProject);
 
         selectedNodeId = newNode.id; // Select the new node
-        renderNodes(); 
+        renderNodes();
         openNodeEditor(newNode.id, true); // Open editor for new node, true to prevent undo push from openNodeEditor
-        
-        if(duplicateNodeBtn) duplicateNodeBtn.disabled = false;
-        if(deleteNodeBtn) deleteNodeBtn.disabled = false;
+
+        if (duplicateNodeBtn) duplicateNodeBtn.disabled = false;
+        if (deleteNodeBtn) deleteNodeBtn.disabled = false;
         // updateUndoButtons(); // Not needed here
     };
 
@@ -2681,7 +2707,7 @@ const finishConnectionDrag = (e) => {
                 selectedNodeId = null;
             }
         }
-        
+
         // If button editor was open, check if selected button is still valid
         if (!buttonEditorPanel.classList.contains('hidden')) {
             if (selectedNodeId && selectedButtonId) {
@@ -2706,13 +2732,13 @@ const finishConnectionDrag = (e) => {
         duplicateNodeBtn.disabled = !selectedNodeId;
         deleteNodeBtn.disabled = !selectedNodeId;
         if (selectedNodeId) {
-             const nodeStillExists = currentProject.videos.some(v => v.id === selectedNodeId);
-             if (!nodeStillExists) {
+            const nodeStillExists = currentProject.videos.some(v => v.id === selectedNodeId);
+            if (!nodeStillExists) {
                 selectedNodeId = null;
                 duplicateNodeBtn.disabled = true;
                 deleteNodeBtn.disabled = true;
                 closeNodeEditor();
-             }
+            }
         } else {
             duplicateNodeBtn.disabled = true;
             deleteNodeBtn.disabled = true;
@@ -2732,7 +2758,7 @@ const finishConnectionDrag = (e) => {
         pushToUndoStack(); // Save state before aligning buttons
 
         const windowStart = (selectedBtn.time || 0) - 2.5;
-        const windowEnd   = (selectedBtn.time || 0) + 2.5;
+        const windowEnd = (selectedBtn.time || 0) + 2.5;
         const buttonsInWindow = node.buttons.filter(b => {
             const t = b.time || 0;
             return t >= windowStart && t <= windowEnd;
@@ -2793,7 +2819,7 @@ const finishConnectionDrag = (e) => {
 
     // Utility function to generate a UUID
     const generateUUID = () => {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
             var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
             return v.toString(16);
         });
@@ -2951,38 +2977,4 @@ const saveCurrentProject = async () => {
     }
 };
 
-// Setup or update button editor panel with new image fields
-let buttonLinkType = getElement('button-link-type');
-let nodeLinkContainer = getElement('node-link-container');
-let urlLinkContainer = getElement('url-link-container');
-let embedCodeContainer = getElement('embed-code-container');
-let containsImageContainer = document.createElement('div');
-containsImageContainer.style.marginTop = '10px';
-containsImageContainer.innerHTML = `
-    <label style="display: block; margin-bottom: 5px;">Contains Image:</label>
-    <input type="checkbox" id="contains-image-checkbox" style="margin-right: 5px;">
-`;
-let imageUrlContainer = document.createElement('div');
-imageUrlContainer.id = 'image-url-container';
-imageUrlContainer.style.display = 'none';
-imageUrlContainer.style.marginTop = '10px';
-imageUrlContainer.innerHTML = `
-    <label for="button-image-url" style="display: block; margin-bottom: 5px;">Image URL:</label>
-    <input type="text" id="button-image-url" placeholder="Enter image URL" style="width: 100%; padding: 5px; box-sizing: border-box;">
-`;
-if (buttonLinkType) {
-    const linkTypeContainer = buttonLinkType.parentElement;
-    linkTypeContainer.insertAdjacentElement('afterend', containsImageContainer);
-    containsImageContainer.insertAdjacentElement('afterend', imageUrlContainer);
-}
-let containsImageCheckbox = getElement('contains-image-checkbox');
-let imageUrlInput = getElement('button-image-url');
-if (containsImageCheckbox && imageUrlContainer) {
-    containsImageCheckbox.addEventListener('change', () => {
-        imageUrlContainer.style.display = containsImageCheckbox.checked ? 'block' : 'none';
-        updateButtonFromEditor();
-    });
-}
-if (imageUrlInput) {
-    imageUrlInput.addEventListener('input', updateButtonFromEditor);
-}
+
